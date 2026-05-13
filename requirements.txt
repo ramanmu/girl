@@ -2,5 +2,4 @@ streamlit
 pandas
 numpy
 faiss-cpu
-pickle
 sentence_transformers
