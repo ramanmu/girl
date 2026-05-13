@@ -3,3 +3,4 @@ pandas
 numpy
 faiss-cpu
 sentence_transformers
+rank_bm25
