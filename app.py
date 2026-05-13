@@ -1,6 +1,6 @@
 import streamlit as st
 import json
-from biobank_grep import BioBankGrep
+from biobankgrep import BioBankGrep
 
 # Initialize engine once (caches the models in memory)
 @st.cache_resource

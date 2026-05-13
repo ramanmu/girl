@@ -1,7 +1,7 @@
 import argparse
 import sys
 import json
-from biobank_grep import BioBankGrep
+from biobankgrep import BioBankGrep
 
 def main():
     try:
