@@ -1,9 +1,14 @@
-app.py
+streamlit
+biobank_grep.py
+pandas
+numpy
+faiss-cpu
+pickle
+sentence_transformers
 bio_index.faiss
 bio_index.parquet
 bio_index_bm25.pkl
 bio_index_df.pkl
 bio_index_schema.json
-biobank_grep.py
 girl.cfg
 manifest.json
