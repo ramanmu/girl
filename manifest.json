@@ -1,0 +1,22 @@
+{
+  "filters": [
+    {
+      "column": "fees",
+      "type": "multi",
+      "options": [
+        "False",
+        "True"
+      ]
+    },
+    {
+      "column": "address",
+      "type": "substring"
+    },
+    {
+      "column": "repository_type",
+      "type": "substring"
+    }
+  ],
+  "total_records": 84,
+  "default_top_k": 25
+}
