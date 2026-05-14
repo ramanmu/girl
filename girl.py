@@ -44,7 +44,7 @@ def main():
         #cols_to_show = [c for c in ['name', 'repository_type', 'description', 'country', 'address', 'rrf_score'] if c in results.columns]
         cols_to_show = [c for c in ['name', 'repository_type', 'country', 'address', 'rrf_score'] if c in results.columns]
         if 'rrf_score' not in cols_to_show: cols_to_show.append('rrf_score')
-        print(results[cols_to_show].to_csv())
+        print(results[cols_to_show].to_csv(index=False))
 
 if __name__ == "__main__":
     main()

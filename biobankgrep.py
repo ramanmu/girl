@@ -6,9 +6,11 @@ import json
 import configparser
 import re
 from sentence_transformers import SentenceTransformer
+import spacy
 
 class BioBankGrep:
     def __init__(self):
+    #{
         cfg = configparser.ConfigParser()
         cfg.read("girl.cfg")
         self.cfg = cfg["GLOBAL"]
@@ -21,17 +23,34 @@ class BioBankGrep:
         
         self.model = SentenceTransformer(self.cfg.get("model_name"))
         self.rrf_k = 60
+        
+        # Load the NLP brain once when the engine starts
+        self.nlp = spacy.load("en_core_sci_sm");
+    #}
 
     def clean_human_query(self, raw_query):
-        stop_words = {
-            "biobank", "biobanks", "repository", "repositories", "sample", "samples",
-            "specimen", "specimens", "data", "database", "looking", "for", "with", 
-            "containing", "that", "have", "give", "me", "find", "all", "in", "located",
-            "are", "which", "and", "or", "the", "a", "an"
+    #{
+        custom_stop_words = {
+            "biobank", "repository", "sample",
+            "specimen", "data", "database", "look",
+            "contain", "find", "locate"
         }
-        clean_text = re.sub(r'[^\w\s]', '', raw_query.lower())
-        words = clean_text.split()
-        return [w for w in words if w not in stop_words]
+
+        doc = self.nlp(raw_query.lower());
+        clean_words = [];
+        for token in doc:
+        #{
+          #spacy's 'is_stop' automatically removes the 'the', 'and', etc.
+          if not token.is_punct and not token.is_space and not token.is_stop:
+          #{
+            if token.lemma_ not in custom_stop_words:
+            #{
+              clean_words.append(token.lemma_);
+            #}
+          #}
+        #}
+        return clean_words;
+    #}
 
     def execute_query(self, dsl):
         raw_query = dsl.get("nlp", "").strip()
@@ -77,12 +96,15 @@ class BioBankGrep:
         for r, p in enumerate(v_ranks): rrf_map[subset_ids[p]] += 1.0/(self.rrf_k + r)
         for r, p in enumerate(k_ranks): rrf_map[subset_ids[p]] += 1.0/(self.rrf_k + r)
 
+        # --- The NLP Sledgehammer ---
         for idx in subset_ids:
             row_text = " ".join(map(str, f_df.loc[idx].values)).lower()
-            clean_row_text = set(re.sub(r'[^\w\s]', '', row_text).split())
+
+            # Lemmatize the row text on the fly
+            row_doc = self.nlp(row_text);
+            clean_row_text = set([token.lemma_ for token in row_doc if not token.is_punct]);
             match_count = sum(1 for word in clean_query_words if word in clean_row_text)
             
-            # The Sledgehammer
             if len(clean_query_words) > 0 and match_count == 0:
                 rrf_map[idx] = 0.0 # Hard drop if zero words match
             else:

@@ -7,6 +7,9 @@ import configparser
 import re
 from sentence_transformers import SentenceTransformer
 from rank_bm25 import BM25Okapi
+import spacy
+
+nlp = spacy.load("en_core_sci_sm");
 
 def build_index():
     print("--- 🛠️  Generating Artifacts ---")
@@ -53,8 +56,20 @@ def build_index():
     faiss.normalize_L2(embeddings)
     index.add(embeddings)
 
-    # 5. KEYWORD INDEX (BM25)
+    # 5. KEYWORD INDEX (BM25) via Lemmatization
     tokenized_docs = [doc.lower().split() for doc in documents]
+    print("Lemmatizing documents for BM25...");
+    tokenized_docs = [];
+
+    # process documents in bulk for performance
+    for doc in nlp.pipe(documents, disable=["ner", "parser"]):
+    # Disabling 'ner' and 'parser' makes this run 10x faster as we only need the
+    # dictionary roots, not full sentence diagramming.
+    #{
+      #Extract the lemma (root word), ignore punctuation and spaces
+      tokens = [token.lemma_.lower() for token in doc if not token.is_punct and not token.is_space];
+      tokenized_docs.append(tokens);
+    #}
     bm25 = BM25Okapi(tokenized_docs)
 
     # 6. SAVE ARTIFACTS
