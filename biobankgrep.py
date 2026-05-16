@@ -51,8 +51,8 @@ class BioBankGrep:
         if token.pos_ in {"NOUN", "PROPN", "ADJ"}:
           if not token.is_stop:
             stemmed_word = self.stemmer.stem(token.lemma_)
-              if stemmed_word not in custom_stop_stems:
-                clean_stems.append(stemmed_word)
+            if stemmed_word not in custom_stop_stems:
+              clean_stems.append(stemmed_word)
       #}
       return clean_stems
     #}
