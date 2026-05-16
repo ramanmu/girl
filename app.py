@@ -81,10 +81,10 @@ if st.button("Search", type="primary") or query:
                         "repository_type": st.column_config.TextColumn("Type", width="medium"),
                         "description": st.column_config.TextColumn("Description", width="large"),
                         "fees": st.column_config.TextColumn("Fees?", width="small"),
-                        "url": st.column_config.TextColumn("URL", width="medium"),
-                        "email": st.column_config.TextColumn("Email", width="medium"),
-                        "phone": st.column_config.TextColumn("Tel", width="small"),
-                        "address": st.column_config.TextColumn("Address", width="medium"),
+                        "url": st.column_config.TextColumn("URL", width="large"),
+                        "email": st.column_config.TextColumn("Email", width="large"),
+                        "phone": st.column_config.TextColumn("Tel", width="medium"),
+                        "address": st.column_config.TextColumn("Address", width="large"),
                         "rrf_score": st.column_config.NumberColumn("Rank Score", format="%.4f")
                     }
                 )
