@@ -7,6 +7,7 @@ import configparser
 import re
 from sentence_transformers import SentenceTransformer
 import spacy
+from nltk.stem.snowball import SnowballStemmer
 
 class BioBankGrep:
     def __init__(self):
@@ -26,30 +27,30 @@ class BioBankGrep:
         
         # Load the NLP brain once when the engine starts
         self.nlp = spacy.load("en_core_sci_sm");
+
+        # Initialize the stemmer
+        self.stemmer = SnowballStemmer("english")
     #}
 
     def clean_human_query(self, raw_query):
     #{
-        custom_stop_words = {
-            "biobank", "repository", "sample",
-            "specimen", "data", "database", "look",
-            "contain", "find", "locate"
+        # NOTE: Custom stop words must also be written as their ROOT stems now!
+        custom_stop_stems = {
+            "biobank", "repositor", "sampl", "specimen", "data", "databas",
+            "look", "contain", "find", "locat"
         }
 
         doc = self.nlp(raw_query.lower());
-        clean_words = [];
+
+        clean_stems = []
         for token in doc:
-        #{
-          #spacy's 'is_stop' automatically removes the 'the', 'and', etc.
-          if not token.is_punct and not token.is_space and not token.is_stop:
-          #{
-            if token.lemma_ not in custom_stop_words:
-            #{
-              clean_words.append(token.lemma_);
-            #}
-          #}
-        #}
-        return clean_words;
+            if not token.is_punct and not token.is_space and not token.is_stop:
+                # 1. Get lemma -> 2. Get stem
+                stemmed_word = self.stemmer.stem(token.lemma_)
+                if stemmed_word not in custom_stop_stems:
+                    clean_stems.append(stemmed_word)
+
+        return clean_stems
     #}
 
     def execute_query(self, dsl):
@@ -96,19 +97,22 @@ class BioBankGrep:
         for r, p in enumerate(v_ranks): rrf_map[subset_ids[p]] += 1.0/(self.rrf_k + r)
         for r, p in enumerate(k_ranks): rrf_map[subset_ids[p]] += 1.0/(self.rrf_k + r)
 
-        # --- The NLP Sledgehammer ---
+
+        # --- THE STEMMED NLP SLEDGEHAMMER ---
         for idx in subset_ids:
             row_text = " ".join(map(str, f_df.loc[idx].values)).lower()
 
-            # Lemmatize the row text on the fly
-            row_doc = self.nlp(row_text);
-            clean_row_text = set([token.lemma_ for token in row_doc if not token.is_punct]);
-            match_count = sum(1 for word in clean_query_words if word in clean_row_text)
-            
+            row_doc = self.nlp(row_text)
+            # Match the database row by turning every word into its root stem
+            clean_row_stems = set([self.stemmer.stem(token.lemma_) for token in row_doc if not token.is_punct])
+
+            match_count = sum(1 for stem in clean_query_words if stem in clean_row_stems)
+
             if len(clean_query_words) > 0 and match_count == 0:
-                rrf_map[idx] = 0.0 # Hard drop if zero words match
+                rrf_map[idx] = 0.0 # Hard drop
             else:
                 rrf_map[idx] *= (1 + match_count)
+        # ------------------------------------
 
         final_s = pd.Series(rrf_map)
         final_s = final_s[final_s > 0.0] # Threshold drop

@@ -8,8 +8,11 @@ import re
 from sentence_transformers import SentenceTransformer
 from rank_bm25 import BM25Okapi
 import spacy
+from nltk.stem.snowball import SnowballStemmer
 
 nlp = spacy.load("en_core_sci_sm");
+# Initialize the stemmer
+stemmer = SnowballStemmer("english")
 
 def build_index():
     print("--- 🛠️  Generating Artifacts ---")
@@ -57,19 +60,21 @@ def build_index():
     index.add(embeddings)
 
     # 5. KEYWORD INDEX (BM25) via Lemmatization
-    tokenized_docs = [doc.lower().split() for doc in documents]
-    print("Lemmatizing documents for BM25...");
-    tokenized_docs = [];
-
+    print("Extracting word stems for BM25...")
+    tokenized_docs = []
+    
     # process documents in bulk for performance
-    for doc in nlp.pipe(documents, disable=["ner", "parser"]):
     # Disabling 'ner' and 'parser' makes this run 10x faster as we only need the
     # dictionary roots, not full sentence diagramming.
+    for doc in nlp.pipe(documents, disable=["ner", "parser"]):
     #{
-      #Extract the lemma (root word), ignore punctuation and spaces
-      tokens = [token.lemma_.lower() for token in doc if not token.is_punct and not token.is_space];
-      tokenized_docs.append(tokens);
+      # 1. Get the lemmatized word from scispaCy
+      lemmas = [token.lemma_.lower() for token in doc if not token.is_punct and not token.is_space]
+      # 2. Chop the suffix off with the stemmer
+      stems = [stemmer.stem(word) for word in lemmas]
+      tokenized_docs.append(stems)
     #}
+
     bm25 = BM25Okapi(tokenized_docs)
 
     # 6. SAVE ARTIFACTS
