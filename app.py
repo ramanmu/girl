@@ -61,7 +61,7 @@ if st.button("Search", type="primary") or query:
                   "url",
                   "email",
                   "phone",
-                  "address"
+                  "address",
                   "rrf_score",
                 ]
 
