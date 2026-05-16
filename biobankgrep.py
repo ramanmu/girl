@@ -34,23 +34,27 @@ class BioBankGrep:
 
     def clean_human_query(self, raw_query):
     #{
-        # NOTE: Custom stop words must also be written as their ROOT stems now!
-        custom_stop_stems = {
-            "biobank", "repositor", "sampl", "specimen", "data", "databas",
-            "look", "contain", "find", "locat"
-        }
+      # 1. Keep a small, tight list of domain-specific custom stop words, "garbage words"
+      # Make sure you use their 'stems'
+      custom_stop_stems = {
+        "biobank", "repositor", "sampl", "specimen", "data", "databas"
+      }
 
-        doc = self.nlp(raw_query.lower());
-
-        clean_stems = []
-        for token in doc:
-            if not token.is_punct and not token.is_space and not token.is_stop:
-                # 1. Get lemma -> 2. Get stem
-                stemmed_word = self.stemmer.stem(token.lemma_)
-                if stemmed_word not in custom_stop_stems:
-                    clean_stems.append(stemmed_word)
-
-        return clean_stems
+      # Process the query with scispaCy
+      clean_stems = []
+      doc = self.nlp(raw_query.lower())
+      for token in doc:
+      #{
+        # Check the token's Part of Speech (POS) tag!
+        # We ONLY allow Nouns, Proper Nouns, and Adjectives.
+        # This instantly destroys verbs like 'have', 'contain', 'want', 'get'.
+        if token.pos_ in {"NOUN", "PROPN", "ADJ"}:
+          if not token.is_stop:
+            stemmed_word = self.stemmer.stem(token.lemma_)
+              if stemmed_word not in custom_stop_stems:
+                clean_stems.append(stemmed_word)
+      #}
+      return clean_stems
     #}
 
     def execute_query(self, dsl):
