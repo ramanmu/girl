@@ -75,15 +75,16 @@ if st.button("Search", type="primary") or query:
                     ordered_results,
                     use_container_width=True,
                     hide_index=True,
+                    row_height=100,
                     column_config={
                         "name": st.column_config.TextColumn("Name", width="medium"),
-                        "repository_type": st.column_config.Column("Type", width="medium", word_wrap=True),
-                        "description": st.column_config.Column("Description", width="large", word_wrap=True),
+                        "repository_type": st.column_config.TextColumn("Type", width="medium"),
+                        "description": st.column_config.TextColumn("Description", width="large"),
                         "fees": st.column_config.TextColumn("Fees?", width="small"),
                         "url": st.column_config.TextColumn("URL", width="medium"),
                         "email": st.column_config.TextColumn("Email", width="medium"),
                         "phone": st.column_config.TextColumn("Tel", width="small"),
-                        "address": st.column_config.Column("Address", width="medium", word_wrap=True),
+                        "address": st.column_config.TextColumn("Address", width="medium"),
                         "rrf_score": st.column_config.NumberColumn("Rank Score", format="%.4f")
                     }
                 )
