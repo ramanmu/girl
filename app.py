@@ -51,7 +51,7 @@ if st.button("Search", type="primary") or query:
             else:
                 st.success(f"Found {len(results)} highly relevant biobanks.")
                 st.dataframe(
-                    results.drop(columns=['description'], errors='ignore'), # Hide giant text blocks in the table
+                    results.drop(columns=['id', 'date_created', 'date_modified'], errors='ignore'),
                     use_container_width=True,
                     hide_index=True
                 )
