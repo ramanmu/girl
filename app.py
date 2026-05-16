@@ -50,8 +50,39 @@ if st.button("Search", type="primary") or query:
                 st.error("No biobanks matched your exact criteria.")
             else:
                 st.success(f"Found {len(results)} highly relevant biobanks.")
+
+                # 1. ---- DEFINE YOUR DESIRED COLUMN ORDER ------------
+                # Columns will be displayed in this order from left-to-right
+                desired_column_order = [
+                  "name",
+                  "repository_type",
+                  "description",
+                  "fees",
+                  "url",
+                  "email",
+                  "phone",
+                  "address"
+                  "rrf_score",
+                ]
+
+                # Filter and re-order the dataframe rows dynamically
+                # (We use errors='ignore' just in case a column name has a typo)
+                ordered_results = results[desired_column_order]
+
+                # 2. RENDER THE UPGRADED DATAFRAME WITH CONFIG
                 st.dataframe(
-                    results.drop(columns=['id', 'date_created', 'date_modified'], errors='ignore'),
+                    ordered_results,
                     use_container_width=True,
-                    hide_index=True
+                    hide_index=True,
+                    column_config={
+                        "name": st.column_config.TextColumn("Name", width="medium"),
+                        "repository_type": st.column_config.TextColumn("Type", width="medium", word_wrap=True),
+                        "description": st.column_config.TextColumn("Description", width="large", word_wrap=True),
+                        "fees": st.column_config.TextColumn("Fees?", width="small"),
+                        "url": st.column_config.TextColumn("URL", width="medium"),
+                        "email": st.column_config.TextColumn("Email", width="medium"),
+                        "phone": st.column_config.TextColumn("Tel", width="small"),
+                        "address": st.column_config.TextColumn("Address", width="medium", word_wrap=True),
+                        "rrf_score": st.column_config.NumberColumn("Rank Score", format="%.4f")
+                    }
                 )
