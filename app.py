@@ -67,7 +67,8 @@ if st.button("Search", type="primary") or query:
 
                 # Filter and re-order the dataframe rows dynamically
                 # (We use errors='ignore' just in case a column name has a typo)
-                ordered_results = results[desired_column_order]
+                ordered_results = results.reindex(columns=desired_column_order, fill_value="N/A")
+
 
                 # 2. RENDER THE UPGRADED DATAFRAME WITH CONFIG
                 st.dataframe(
