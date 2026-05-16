@@ -77,13 +77,13 @@ if st.button("Search", type="primary") or query:
                     hide_index=True,
                     column_config={
                         "name": st.column_config.TextColumn("Name", width="medium"),
-                        "repository_type": st.column_config.TextColumn("Type", width="medium", word_wrap=True),
-                        "description": st.column_config.TextColumn("Description", width="large", word_wrap=True),
+                        "repository_type": st.column_config.Column("Type", width="medium", word_wrap=True),
+                        "description": st.column_config.Column("Description", width="large", word_wrap=True),
                         "fees": st.column_config.TextColumn("Fees?", width="small"),
                         "url": st.column_config.TextColumn("URL", width="medium"),
                         "email": st.column_config.TextColumn("Email", width="medium"),
                         "phone": st.column_config.TextColumn("Tel", width="small"),
-                        "address": st.column_config.TextColumn("Address", width="medium", word_wrap=True),
+                        "address": st.column_config.Column("Address", width="medium", word_wrap=True),
                         "rrf_score": st.column_config.NumberColumn("Rank Score", format="%.4f")
                     }
                 )
