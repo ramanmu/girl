@@ -1,50 +1,82 @@
 import argparse
-import sys
-import json
 from biobankgrep import BioBankGrep
+import json
+import sys
+from types import SimpleNamespace
 
 def main():
-    try:
-        with open("manifest.json", "r") as f: schema = json.load(f)
-    except FileNotFoundError:
-        print("Error: manifest.json not found. Run 'python indexer.py' first.")
+#{
+  # ---- Load config file ----------------------
+  cfg_file = "girl.cfg";
+  try:
+    with open(cfg_file, "r") as f: r = json.load(f);
+  except FileNotFoundError:
+    print(f"Error: Config file {cfg_file} not found. Run 'python indexer.py' first.");
+    sys.exit(1)
+  cfg = json.loads(json.dumps(r), object_hook=lambda x: SimpleNamespace(**x));
+
+  # ---- Load manifest file ----------------------
+  man_file = cfg.manifest_file;
+  try:
+    with open(man_file, "r") as f: r = json.load(f);
+  except FileNotFoundError:
+    print(f"Error: Manifest file {man_file} not found. Run 'python indexer.py' first.");
+    sys.exit(1)
+  man = json.loads(json.dumps(r), object_hook=lambda x: SimpleNamespace(**x));
+
+  # ---- Load filters file ------------------------
+  fil_file = man.filters_file;
+  try:
+    with open(fil_file, "r") as f: r = json.load(f);
+  except FileNotFoundError:
+    print(f"Error: Filters file {fil_file} not found. Run 'python indexer.py' first.");
+    sys.exit(1)
+  filters = json.loads(json.dumps(r), object_hook=lambda x: SimpleNamespace(**x));
+
+  # ---- Configure command line parser --------------
+  parser = argparse.ArgumentParser(description="BioBank Search CLI")
+  parser.add_argument("query", type=str, help="Natural language search query")
+  parser.add_argument("-k", "--top_k", type=int, default=cfg.default_top_k, help="Top k to show");
+
+  for f in filters: 
+  #{
+    c = f.column;
+    arg = [f"--{c}"];
+    kwargs = {
+      "help": f"Option to filter results by {c}",
+      "type": str,
+      "required": False
+    };
+    if f.type == 'multi': kwargs["nargs"] = "+";
+    print(f"about to add argument {arg} to the parser");
+    parser.add_argument(*arg, **kwargs);
+  #}
+
+  # ---- Parse arguments and initialize ----------------
+  args = parser.parse_args()
+  filter_asks = {};
+  for f in filters:
+  #{
+    c = f.column;
+    vals = getattr(args, c, None)
+    if not vals: continue;
+    if f.type in ['mono', 'multi']:
+      badv = [v for v in vals if v not in f.options];
+      if badv:
+        print(f"Error: Invalid value(s) {badv} for --{c}. Valid values are: {f.options}")
         sys.exit(1)
+    filter_asks[c] = vals
+  #}
 
-    parser = argparse.ArgumentParser(description="BioBank Search CLI")
-    parser.add_argument("query", type=str, help="Natural language search query")
-    parser.add_argument("-k", "--top_k", type=int, default=schema["default_top_k"], help="Number of results")
-
-    schema_map = {f["column"]: f for f in schema["filters"]}
-    for col, f_schema in schema_map.items():
-        if f_schema["type"] in ["multi", "substring"]:
-            parser.add_argument(f"--{col}", nargs="+", help=f"Filter by {col} ({f_schema['type']})")
-
-    args = parser.parse_args()
+  # ---- Execute search and display results ---------------------
+  engine = BioBankGrep()
+  results = engine.execute_query(args.query, filter_asks, args.top_k);
     
-    dsl_filters = {}
-    for col, f_schema in schema_map.items():
-        user_vals = getattr(args, col, None)
-        if user_vals:
-            if f_schema["type"] == "multi":
-                invalid = [v for v in user_vals if v not in f_schema["options"]]
-                if invalid:
-                    print(f"Error: Invalid options for --{col}: {invalid}\nValid: {f_schema['options']}")
-                    sys.exit(1)
-            dsl_filters[col] = user_vals
-
-    dsl = {"nlp": args.query, "filters": dsl_filters, "top_k": args.top_k}
-    
-    engine = BioBankGrep()
-    results = engine.execute_query(dsl)
-    
-    if results.empty:
-        print("\nNo matching biobanks found.")
-    else:
-        print(f"\n--- BioBankGrep Results ({len(results)}) ---")
-        #cols_to_show = [c for c in ['name', 'repository_type', 'description', 'country', 'address', 'rrf_score'] if c in results.columns]
-        cols_to_show = [c for c in ['name', 'repository_type', 'country', 'address', 'rrf_score'] if c in results.columns]
-        if 'rrf_score' not in cols_to_show: cols_to_show.append('rrf_score')
-        print(results[cols_to_show].to_csv(index=False))
+  if results.empty: print("\nNo matching biobanks found.")
+  else:
+    print(f"\n--- BioBankGrep Results ({len(results)}) ---")
+    cols_to_show = ['name', 'repository_type', 'address', 'Ranking'];
+    print(results[cols_to_show].to_csv(index=False))
 
 if __name__ == "__main__":
-    main()
+  main()

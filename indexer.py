@@ -1,89 +1,97 @@
-import pandas as pd
-import numpy as np
-import faiss
-import pickle
-import json
 import configparser
-import re
-from sentence_transformers import SentenceTransformer
-from rank_bm25 import BM25Okapi
-import spacy
+import json
+import faiss
+import numpy as np
 from nltk.stem.snowball import SnowballStemmer
+import os
+import pandas as pd
+import pickle
+import re
+from rank_bm25 import BM25Okapi
+from sentence_transformers import SentenceTransformer
+import spacy
+from types import SimpleNamespace
 
-nlp = spacy.load("en_core_sci_sm");
-# Initialize the stemmer
-stemmer = SnowballStemmer("english")
+def clean_repository_type(t):
+#{
+  m = re.findall(r'RepositoryType:\s*([^>\]]+)', str(t))
+  return ", ".join(m) if m else str(t)
+#}
 
-def build_index():
-    print("--- 🛠️  Generating Artifacts ---")
-    cfg = configparser.ConfigParser()
-    cfg.read("girl.cfg")
-    cfg = cfg["GLOBAL"]
 
-    # 1. LOAD & CLEAN DATA
-    df = pd.read_csv(cfg.get("csv_file")).fillna("")
+def main(cfg_file="girl.cfg"):
+#{
+  # ---- LOAD APP CONFIG ------------------
+  with open(cfg_file, "r") as f: r = json.load(f);
+  cfg = json.loads(json.dumps(r), object_hook=lambda d: SimpleNamespace(**d));
 
-    if 'fees' in df.columns:
-        df['fees'] = df['fees'].astype(str).str.strip()
+  # ---- LOAD, SCRUB, AND SAVE  BIOBANK DATA -------------
+  data_file = cfg.data_file;
+  base  = os.path.splitext(os.path.basename(data_file))[0];
+  df = pd.read_csv(data_file).fillna("");
+  df['docs'] = df.astype(str).agg(" ".join, axis=1);
 
-    if 'repository_type' in df.columns:
-        def clean_repo_type(text):
-            matches = re.findall(r'RepositoryType:\s*([^>\]]+)', str(text))
-            return ", ".join(matches) if matches else str(text)
-        df['repository_type'] = df['repository_type'].apply(clean_repo_type)
+  c = 'fees'; # fix the fees column data
+  if c in df.columns: df[c] = df[c].astype(str).str.strip()
 
-    # 2. BUILD SCHEMA
-    schema = {"filters": [], "total_records": len(df), "default_top_k": cfg.getint("default_top_k")}
-    cat_filters = [c.strip() for c in cfg.get("category_filters", "").split(",") if c.strip()]
-    txt_filters = [c.strip() for c in cfg.get("text_filters", "").split(",") if c.strip()]
+  c = 'repository_type';  # fix the repository type column data
+  if c in df.columns: df[c] = df[c].apply(clean_repository_type);
 
-    for col in df.columns:
-        if col in cat_filters:
-            schema["filters"].append({"column": col, "type": "multi", "options": sorted(df[col].unique().tolist())})
-        elif col in txt_filters:
-            schema["filters"].append({"column": col, "type": "substring"})
+  df_file = f"{base}_df.pkl";
+  df.to_pickle(df_file)
 
-    # 3. BUILD SEMANTIC DOCUMENTS
-    vector_cols = [c.strip() for c in cfg.get("vector_columns", "").split(",") if c.strip()]
-    documents = []
-    for idx, row in df.iterrows():
-        doc_parts = [str(row[col]) for col in vector_cols if col in df.columns]
-        documents.append(" ".join(doc_parts))
+  # ---- EXTRACT AND SAVE THE FILTERS --------------------------
+  filter_rules = [];
+  for f in cfg.filters:
+  #{
+    if f.column not in df.columns: continue;
+    if f.type in ['mono', 'multi']: f.options = sorted(df[c].unique().tolist());
+    filter_rules.append(f.__dict__);
+  #}
 
-    # 4. VECTORIZATION (FAISS)
-    print(f"Loading {cfg.get('model_name')}...")
-    model = SentenceTransformer(cfg.get("model_name"))
-    embeddings = model.encode(documents, show_progress_bar=True).astype("float32")
+  filters_file = f"{base}_filters.json";
+  with open(filters_file, "w") as f: json.dump(filter_rules, f, indent=2);
     
-    index = faiss.IndexFlatIP(embeddings.shape[1])
-    faiss.normalize_L2(embeddings)
-    index.add(embeddings)
+  # ------ COMPUTE AND SAVE BM25 ---------------------------
+  sdl = df['docs'].tolist();
+  nlp = spacy.load(cfg.nlp_model.strip("'\""));
+  sbs = SnowballStemmer("english");
+  tokens = [];
+  for d in nlp.pipe([w.lower() for w in sdl], disable=['ner', 'parser']):
+  #{
+    s = [sbs.stem(t.lemma_) for t in d if not t.is_punct and not t.is_space];
+    tokens.append(s);
+  #}
+  bm25 =  BM25Okapi(tokens);
 
-    # 5. KEYWORD INDEX (BM25) via Lemmatization
-    print("Extracting word stems for BM25...")
-    tokenized_docs = []
-    
-    # process documents in bulk for performance
-    # Disabling 'ner' and 'parser' makes this run 10x faster as we only need the
-    # dictionary roots, not full sentence diagramming.
-    for doc in nlp.pipe(documents, disable=["ner", "parser"]):
-    #{
-      # 1. Get the lemmatized word from scispaCy
-      lemmas = [token.lemma_.lower() for token in doc if not token.is_punct and not token.is_space]
-      # 2. Chop the suffix off with the stemmer
-      stems = [stemmer.stem(word) for word in lemmas]
-      tokenized_docs.append(stems)
-    #}
+  bm25_file = f"{base}_bm25.pkl";
+  with open(bm25_file, "wb") as f: pickle.dump(bm25, f)
 
-    bm25 = BM25Okapi(tokenized_docs)
+  # ---- VECTORIZE, INDEX, AND SAVE BIOBANK EMBEDDINGS ------------------
+  bi_encoder = SentenceTransformer(cfg.bi_encoder);
+  embeddings = bi_encoder.encode(sdl, show_progress_bar=True, convert_to_numpy=True);
+  faiss.normalize_L2(embeddings);
 
-    # 6. SAVE ARTIFACTS
-    base = cfg.get("index_file_basename")
-    faiss.write_index(index, f"{base}.faiss")
-    with open(f"{base}_bm25.pkl", "wb") as f: pickle.dump(bm25, f)
-    df.to_pickle(f"{base}_df.pkl")
-    with open(cfg.get("manifest_file"), "w") as f: json.dump(schema, f, indent=2)
-    print("--- ✅ Indexing Complete ---")
+  # ---- INDEX THE VECTOR EMBEDDINGS
+  dim = embeddings.shape[1];
+  faiss_index = faiss.IndexFlatL2(dim);
+  faiss_index.add(embeddings);
 
-if __name__ == "__main__":
-    build_index()
+  faiss_file = f"{base}.faiss";
+  faiss.write_index(faiss_index, faiss_file)
+
+  # ------ SET UP THE ARTIFACT MANIFEST --------------
+  print("--- 🛠️  Generating and saving Artifacts ---")
+  manifest = {
+    "df_file": df_file,
+    "filters_file": filters_file,
+    "bm25_file": bm25_file,
+    "faiss_file": faiss_file,
+    "total_records": len(df)
+  };
+  with open(cfg.manifest_file, "w") as f: json.dump(manifest, f, indent=2)
+ 
+  print("--- ✅ Indexing Complete ---")
+#}
+
+if __name__ == "__main__": main();

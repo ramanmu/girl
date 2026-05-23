@@ -1,22 +1,7 @@
 {
-  "filters": [
-    {
-      "column": "fees",
-      "type": "multi",
-      "options": [
-        "False",
-        "True"
-      ]
-    },
-    {
-      "column": "address",
-      "type": "substring"
-    },
-    {
-      "column": "repository_type",
-      "type": "substring"
-    }
-  ],
-  "total_records": 84,
-  "default_top_k": 25
+  "df_file": "biobank_data_df.pkl",
+  "filters_file": "biobank_data_filters.json",
+  "bm25_file": "biobank_data_bm25.pkl",
+  "faiss_file": "biobank_data.faiss",
+  "total_records": 84
 }
