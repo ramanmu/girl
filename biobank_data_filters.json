@@ -1,0 +1,40 @@
+[
+  {
+    "column": "fees",
+    "type": "mono",
+    "options": [
+      "Animal Specimen Repository",
+      "Animal Specimen Repository, Environmental Repository",
+      "Animal Specimen Repository, Environmental Repository, Museum Repository",
+      "Animal Specimen Repository, Human Specimen Repository - Adult, Human Specimen Repository - Pediatric",
+      "Animal Specimen Repository, Human Specimen Repository - Adult, Microorganism Culture Collection",
+      "Human Specimen Repository - Adult",
+      "Human Specimen Repository - Adult, Human Specimen Repository - Pediatric",
+      "Human Specimen Repository - Adult, Human Specimen Repository - Pediatric, Plant/Seed Repository",
+      "Human Specimen Repository - Adult, Microorganism Culture Collection",
+      "Human Specimen Repository - Pediatric",
+      "Microorganism Culture Collection"
+    ]
+  },
+  {
+    "column": "repository_type",
+    "type": "multi",
+    "options": [
+      "Animal Specimen Repository",
+      "Animal Specimen Repository, Environmental Repository",
+      "Animal Specimen Repository, Environmental Repository, Museum Repository",
+      "Animal Specimen Repository, Human Specimen Repository - Adult, Human Specimen Repository - Pediatric",
+      "Animal Specimen Repository, Human Specimen Repository - Adult, Microorganism Culture Collection",
+      "Human Specimen Repository - Adult",
+      "Human Specimen Repository - Adult, Human Specimen Repository - Pediatric",
+      "Human Specimen Repository - Adult, Human Specimen Repository - Pediatric, Plant/Seed Repository",
+      "Human Specimen Repository - Adult, Microorganism Culture Collection",
+      "Human Specimen Repository - Pediatric",
+      "Microorganism Culture Collection"
+    ]
+  },
+  {
+    "column": "address",
+    "type": "text"
+  }
+]
