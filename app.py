@@ -75,7 +75,7 @@ if st.button("Search", type="primary") or query:
                     ordered_results,
                     use_container_width=True,
                     hide_index=True,
-                    row_height=100,
+                    #row_height=100,
                     column_config={
                         "name": st.column_config.TextColumn("Name", width="medium"),
                         "repository_type": st.column_config.TextColumn("Type", width="medium"),
