@@ -69,22 +69,37 @@ if st.button("Search", type="primary") or query:
                 # (We use errors='ignore' just in case a column name has a typo)
                 ordered_results = results.reindex(columns=desired_column_order, fill_value="N/A")
 
+                  
+#                # 2. RENDER THE UPGRADED DATAFRAME WITH CONFIG
+#                st.dataframe(
+#                    ordered_results,
+#                    use_container_width=True,
+#                    hide_index=True,
+#                    #row_height=100,
+#                    column_config={
+#                        "name": st.column_config.TextColumn("Name", width="medium"),
+#                        "repository_type": st.column_config.TextColumn("Type", width="medium"),
+#                        "description": st.column_config.TextColumn("Description", width="large"),
+#                        "fees": st.column_config.TextColumn("Fees?", width="small"),
+#                        "url": st.column_config.TextColumn("URL", width="large"),
+#                        "email": st.column_config.TextColumn("Email", width="large"),
+#                        "phone": st.column_config.TextColumn("Tel", width="medium"),
+#                        "address": st.column_config.TextColumn("Address", width="large"),
+#                        "rrf_score": st.column_config.NumberColumn("Rank Score", format="%.4f")
+#                    }
+#                )
 
-                # 2. RENDER THE UPGRADED DATAFRAME WITH CONFIG
-                st.dataframe(
-                    ordered_results,
-                    use_container_width=True,
-                    hide_index=True,
-                    #row_height=100,
-                    column_config={
-                        "name": st.column_config.TextColumn("Name", width="medium"),
-                        "repository_type": st.column_config.TextColumn("Type", width="medium"),
-                        "description": st.column_config.TextColumn("Description", width="large"),
-                        "fees": st.column_config.TextColumn("Fees?", width="small"),
-                        "url": st.column_config.TextColumn("URL", width="large"),
-                        "email": st.column_config.TextColumn("Email", width="large"),
-                        "phone": st.column_config.TextColumn("Tel", width="medium"),
-                        "address": st.column_config.TextColumn("Address", width="large"),
-                        "rrf_score": st.column_config.NumberColumn("Rank Score", format="%.4f")
-                    }
-                )
+                # Inside app.py - Render as high-fidelity result cards
+                for idx, row in ordered_results.iterrows():
+                  # Creates a beautiful visually isolated card container
+                  with st.container(border=True):
+                  # Title bar shows name and type clearly
+                  st.subheader(f"🧬 {row['name']}")
+                  st.caption(f"**Type:** {row['repository_type']} | **Fees:** {row['fees']} | **Match Score:** {row['rrf_score']:.4f}")
+
+                  # The description sits inside a clean, native text block that wraps flawlessly
+                  st.markdown(row['description'])
+
+                  # Clean, clickable anchor link for the URL asset if it exists
+                  if row['url'] and row['url'] != "N/A":
+                  st.markdown(f"🔗 [Visit Repository Website]({row['url']})")
