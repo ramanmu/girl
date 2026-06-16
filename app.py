@@ -102,4 +102,4 @@ if st.button("Search", type="primary") or query:
 
                     # Clean, clickable anchor link for the URL asset if it exists
                     if row['url'] and row['url'] != "N/A":
-                    st.markdown(f"🔗 [Visit Repository Website]({row['url']})")
+                      st.markdown(f"🔗 [Visit Repository Website]({row['url']})")
