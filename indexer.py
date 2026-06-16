@@ -23,6 +23,14 @@ def build_index():
     # 1. LOAD & CLEAN DATA
     df = pd.read_csv(cfg.get("csv_file")).fillna("")
 
+    # Normalize all text columns to strip layout gaps
+    for col in df.select_dtypes(include=["object", "string"]).columns:
+      df[col] = df[col].astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
+    
+    # NEW FIX: Eliminate whitespace gaps sitting directly before sentence-ending punctuation
+    # This transforms "data    ." cleanly into "data." so the UI renderer won't trip
+    df[col] = df[col].str.replace(r"\s+([.,;:?!])", r"\1", regex=True)
+
     if 'fees' in df.columns:
         df['fees'] = df['fees'].astype(str).str.strip()
 

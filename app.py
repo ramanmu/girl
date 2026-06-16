@@ -38,7 +38,7 @@ if st.button("Search", type="primary") or query:
     if not query:
         st.warning("Please enter a search term.")
     else:
-        with st.spinner("Searching vectors and keywords..."):
+        with st.spinner("Searching..."):
             dsl = {
                 "nlp": query,
                 "filters": active_filters,
