@@ -93,13 +93,13 @@ if st.button("Search", type="primary") or query:
                 for idx, row in ordered_results.iterrows():
                   # Creates a beautiful visually isolated card container
                   with st.container(border=True):
-                  # Title bar shows name and type clearly
-                  st.subheader(f"🧬 {row['name']}")
-                  st.caption(f"**Type:** {row['repository_type']} | **Fees:** {row['fees']} | **Match Score:** {row['rrf_score']:.4f}")
+                    # Title bar shows name and type clearly
+                    st.subheader(f"🧬 {row['name']}")
+                    st.caption(f"**Type:** {row['repository_type']} | **Fees:** {row['fees']} | **Match Score:** {row['rrf_score']:.4f}")
 
-                  # The description sits inside a clean, native text block that wraps flawlessly
-                  st.markdown(row['description'])
+                    # The description sits inside a clean, native text block that wraps flawlessly
+                    st.markdown(row['description'])
 
-                  # Clean, clickable anchor link for the URL asset if it exists
-                  if row['url'] and row['url'] != "N/A":
-                  st.markdown(f"🔗 [Visit Repository Website]({row['url']})")
+                    # Clean, clickable anchor link for the URL asset if it exists
+                    if row['url'] and row['url'] != "N/A":
+                    st.markdown(f"🔗 [Visit Repository Website]({row['url']})")
