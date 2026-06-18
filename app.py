@@ -94,4 +94,11 @@ if st.button("Search", type="primary") or query:
             st.caption(f"**Type:** {row['repository_type']} | **Fees:** {row['fees']} | **Match Score:** {row['rrf_score']:.4f}")
             st.markdown(row['description'])
             if row['url'] and row['url'] != "N/A":
-              st.markdown(f"🔗 [Repository Website]({row['url']})")
+              raw_url = row['url'].strip();
+              # Force absolute path so streamlit won't treat it as a relative/local page.
+              if raw_url.startswith(("http://", "https://")):
+                clean_url = raw_url;
+              else:
+                clean_url = f"https://{raw_url}"; 
+              # Display the URL hyperlink 
+              st.markdown(f"🔗 [Repository Website]({clean_url})")
