@@ -73,22 +73,35 @@ def display_as_split_pane (ordered_results):
         # Operational Metadata Fields grouped tightly
         st.markdown("#### 📍 Contact")
         #st.write(f"💰 **Fees:** {active_record['fees']}")
-        st.write(f"🏢 **Address:** {active_record['address']}")
 
         # Active asset anchor tags
         if active_record['url'] and active_record['url'] != "N/A":
         #{
           raw_url = active_record['url'].strip();
-
-          # Force absolute path so streamlit won't treat it as a relative/local page.
           if raw_url.startswith(("http://", "https://")):
             clean_url = raw_url;
           else:
             clean_url = f"https://{raw_url}"; 
-
-          # Display the URL hyperlink 
-          st.markdown(f"🔗 [Repository Website]({clean_url})")
+          st.markdown(f"🔗 [Website]({clean_url})")
         #}
+        # Email Asset handling
+        if active_record['email'] and active_record['email'] != "N/A":
+          raw_email = active_record['email'].strip()
+          st.markdown(f"✉️ **Email:** [{raw_email}](mailto:{raw_email})")
+
+        # Phone Asset handling
+        if active_record['phone'] and active_record['phone'] != "N/A":
+          raw_phone = active_record['phone'].strip()
+          st.markdown(f"📞 **Tel:** {raw_phone}")
+
+        # Address handling with automated mapping routing
+        if active_record['address'] and active_record['address'] != "N/A":
+          raw_address = active_record['address'].strip()
+          # URL encode the address string for safe browser navigation paths
+          import urllib.parse
+          encoded_address = urllib.parse.quote(raw_address)
+          maps_url = f"https://www.google.com/maps/search/?api=1&query={encoded_address}"
+          st.markdown(f"🏢 **Address:** [{raw_address}]({maps_url})")
       #}
     #}
     else: st.info("Select a repository from the left panel listing to inspect its complete clinical metadata sheet.");
