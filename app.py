@@ -16,7 +16,7 @@ schema = engine.schema
 
 def execute_search ():
 #{
-  dsl = { "nlp": query, "filters": active_filters, "top_k": top_k }
+  dsl = { "nlp": query, "filters": active_filters, "top_k": st.session_state.top_k }
   with st.spinner("Searching..."):
     st.session_state.search_results = engine.execute_query(dsl);
     st.session_state.selected_row_idx = 0;
@@ -122,13 +122,22 @@ for f in schema["filters"]:
 
 st.sidebar.markdown("---")
 
-top_k = st.sidebar.slider("Max Results", min_value=5, max_value=100, value=schema["default_top_k"], on_change=execute_search)
+top_k = st.sidebar.slider(
+  "Max Results",
+  min_value=5,
+  max_value=100,
+  value=schema["default_top_k"],
+  key="top_k",
+  on_change=execute_search
+)
 
 # INITIALIZE SESSION STATE ON STARTUP
 if "search_results" not in st.session_state:
   st.session_state.search_results = None;
 if "selected_row_idx" not in st.session_state:
   st.session_state.selected_row_idx = 0;
+if "top_k" not in st.session_state:
+  st.session_state.top_k = schema["default_top_k"];
 
 # MAIN SEARCH
 query = st.text_input("Enter search criteria", placeholder="e.g., pediatric samples", on_change=execute_search)
