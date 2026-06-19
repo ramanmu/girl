@@ -3,37 +3,39 @@ import pandas as pd
 import streamlit as st
 from biobankgrep import BioBankGrep
 
+def select_preview_row (row_index):
+#{
+  st.session_state.selected_row_idx = row_index;
+#}
+
+  
 def display_as_split_pane (ordered_results):
 #{
   # CONSTRUCT THE SPLIT-PANES: 40% LIST, 60% PREVIEW CARD
   list_pane, preview_pane = st.columns([40, 60], gap="medium");
 
   # LEFT-PANE (40%): HIGH-DENSITY SEARCH RESULTS LIST
+  # --- LEFT PANE: INTERACTIVE LISTING ITEMS ---
   with list_pane:
     st.markdown("### 📥 Matching Repositories")
-
-    # Isolate lean columns for the high-density listing sheet
-    lean_display_cols = ["name", "repository_type", "rrf_score"]
-    lean_df = ordered_results[lean_display_cols].copy()
-
-    # Render a single-row high table layout to prevent horizontal truncation bugs
-    selected_grid = st.dataframe(
-      lean_df,
-      use_container_width=True,
-      hide_index=False, # We keep the index visible so the user can see row offsets
-      height=450,  # lock vertical height so it mirrors a the preview panel
-      selection_mode="single-row", # Enables interactive row clicking callbacks
-      on_select="rerun", # Instantly refreshes the UI state to update the preview pane
-      column_config={
-        "name": st.column_config.TextColumn("Name", width="small"),
-        "repository_type": st.column_config.TextColumn("Type", width="small"),
-        "rrf_score": st.column_config.NumberColumn("Rank", format="%.3f", width="small")
-      }
-    )
-
-    # Update our session memory pointer based on user's active click selection
-    if selected_grid and len(selected_grid.selection.rows) > 0:
-      st.session_state.selected_row_idx = selected_grid.selection.rows[0];
+      
+    # Create a scrollable wrapper frame for the list items
+    with st.container(height=450):
+      for idx, row in ordered_results.iterrows():
+        is_selected = (idx == st.session_state.selected_row_idx)
+        btn_type = "primary" if is_selected else "secondary"
+          
+        # Button labels display core summary metadata metrics natively
+        label = f"🧬 {row['name']} | Score: {row['rrf_score']:.3f}"
+        
+        st.button(
+          label,
+          key=f"row_{idx}",
+          type=btn_type,
+          use_container_width=True,
+          on_click=select_preview_row,
+          args=(idx,)
+        )
 
   # --- RIGHT PANE: RICH PREVIEW CARD ---
   with preview_pane:
