@@ -17,7 +17,7 @@ schema = engine.schema
 def execute_search ():
 #{
   dsl = { "nlp": query, "filters": active_filters, "top_k": top_k }
-  with st.spinnger("Searching..."):
+  with st.spinner("Searching..."):
     st.session_state.search_results = engine.execute_query(dsl);
     st.session_state.selected_row_idx = 0;
 #}
