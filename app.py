@@ -1,5 +1,6 @@
-import streamlit as st
 import json
+import pandas as pd
+import streamlit as st
 from biobankgrep import BioBankGrep
 
 def display_as_split_pane (ordered_results):
@@ -87,6 +88,8 @@ def display_as_split_pane (ordered_results):
   #}
   else: st.info("Select a repository from the left panel listing to inspect its complete clinical metadata sheet.");
 #}
+
+
 # Initialize engine once (caches the models in memory)
 @st.cache_resource
 def load_engine():
@@ -117,7 +120,7 @@ top_k = st.sidebar.slider("Max Results", min_value=5, max_value=100, value=schem
 
 # --- UI: Main Search ---
 query = st.text_input("Describe the biobank data you are looking for:", 
-                      placeholder="e.g., pediatric samples in australia")
+                      placeholder="e.g., pediatric samples")
 
 if st.button("Search", type="primary") or query:
   if not query:
@@ -125,25 +128,19 @@ if st.button("Search", type="primary") or query:
   else:
     with st.spinner("Searching..."):
       dsl = { "nlp": query, "filters": active_filters, "top_k": top_k }
-      results = engine.execute_query(dsl)
-            
-      if results.empty:
+      st.session_state.search_results = engine.execute_query(dsl);
+      st.session_state.selected_row_idx = 0;
+      if "search_results" in st.session_state and st.session_state.search_reslts.empty:
         st.error("No biobanks matched your exact criteria.")
-      else:
+      elif "search_results" in st.session_state:
         st.success(f"Found {len(results)} biobanks.")
-
+        #results = engine.execute_query(dsl)
+            
         # 1. ---- DEFINE YOUR DESIRED COLUMN ORDER ------------
         # Columns will be displayed in this order from left-to-right
         desired_column_order = [
-          "name",
-          "repository_type",
-          "description",
-          "fees",
-          "url",
-          "email",
-          "phone",
-          "address",
-          "rrf_score",
+          "name", "repository_type", "description", "fees",
+          "url", "email", "phone", "address", "rrf_score",
         ]
 
         # Filter and re-order the dataframe rows dynamically
