@@ -3,12 +3,30 @@ import pandas as pd
 import streamlit as st
 from biobankgrep import BioBankGrep
 
+st.set_page_config(page_title="BioBank Search", layout="wide")
+st.title("🧬 BioBank Discovery Engine")
+
+# Initialize engine once (caches the models in memory)
+@st.cache_resource
+def load_engine():
+  return BioBankGrep()
+
+engine = load_engine()
+schema = engine.schema
+
+def execute_search (query, active_filters, top_k):
+#{
+  dsl = { "nlp": query, "filters": active_filters, "top_k": top_k }
+  with st.spinnger("Searching..."):
+    st.session_state.search_results = engine.execute_query(dsl);
+    st.session_state.selected_row_idx = 0;
+#}
+
 def select_preview_row (row_index):
 #{
   st.session_state.selected_row_idx = row_index;
 #}
 
-  
 def display_as_split_pane (ordered_results):
 #{
   # CONSTRUCT THE SPLIT-PANES: 40% LIST, 60% PREVIEW CARD
@@ -47,19 +65,19 @@ def display_as_split_pane (ordered_results):
       #{
         st.subheader(f"🧬 {active_record['name']}")
         st.caption(f"**Type:** {active_record['repository_type']}")
-        st.caption(f"**Rank:** {active_record['rrf_score']:.3f}")
+        st.caption(f"**Fees:** {active_record['fees']}")
 
         st.divider()
 
         # This native markdown block handles full word-wrapping dynamically without bugs
-        st.markdown("#### 📋 Clinical Meta Data Preview")
+        st.markdown("#### 📋 Clinical Meta Data")
         st.write(active_record['description'])
 
         st.divider()
 
         # Operational Metadata Fields grouped tightly
-        st.markdown("#### 📍 Operational Constraints")
-        st.write(f"💰 **Fees:** {active_record['fees']}")
+        st.markdown("#### 📍 Contact")
+        #st.write(f"💰 **Fees:** {active_record['fees']}")
         st.write(f"🏢 **Address:** {active_record['address']}")
 
         # Active asset anchor tags
@@ -81,17 +99,6 @@ def display_as_split_pane (ordered_results):
     else: st.info("Select a repository from the left panel listing to inspect its complete clinical metadata sheet.");
 #}
 
-# Initialize engine once (caches the models in memory)
-@st.cache_resource
-def load_engine():
-  return BioBankGrep()
-
-engine = load_engine()
-schema = engine.schema
-
-st.set_page_config(page_title="BioBank Search", layout="wide")
-st.title("🧬 BioBank Discovery Engine")
-
 # --- UI: Sidebar Filters ---
 st.sidebar.header("Data Filters")
 active_filters = {}
@@ -99,15 +106,15 @@ active_filters = {}
 for f in schema["filters"]:
   col = f["column"]
   if f["type"] == "multi":
-    selection = st.sidebar.multiselect(f"Select {col.title()}", options=f["options"])
+    selection = st.sidebar.multiselect(f"Select {col.title()}", options=f["options"], on_change=execute_search)
     if selection: active_filters[col] = selection
-    elif f["type"] == "substring":
-      # Text box for fuzzy matching (like Address)
-      selection = st.sidebar.text_input(f"Search {col.title()} (Contains)")
-      if selection: active_filters[col] = [selection]
+  elif f["type"] == "substring": # Text box for fuzzy matching (like Address)
+    selection = st.sidebar.text_input(f"Search {col.title()} (Contains)", on_change=execute_search)
+    if selection: active_filters[col] = [selection]
 
 st.sidebar.markdown("---")
-top_k = st.sidebar.slider("Max Results", min_value=5, max_value=100, value=schema["default_top_k"])
+
+top_k = st.sidebar.slider("Max Results", min_value=5, max_value=100, value=schema["default_top_k"], on_change=execute_search)
 
 # INITIALIZE SESSION STATE ON STARTUP
 if "search_results" not in st.session_state:
@@ -116,14 +123,8 @@ if "selected_row_idx" not in st.session_state:
   st.session_state.selected_row_idx = 0;
 
 # MAIN SEARCH
-query = st.text_input("Enter search criteria", placeholder="e.g., pediatric samples")
+query = st.text_input("Enter search criteria", placeholder="e.g., pediatric samples", on_change=execute_search)
 
-def execute_search ():
-#{
-  dsl = { "nlp": query, "filters": active_filters, "top_k": top_k }
-  st.session_state.search_results = engine.execute_query(dsl);
-  st.session_state.selected_row_idx = 0;
-#}
 
 st.button("Search", type="primary", on_click=execute_search);
 st.divider()
