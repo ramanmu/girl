@@ -148,7 +148,7 @@ with query_col:
     "Enter natural language search phrase:",
     placeholder="e.g., placental tissue",
     key="user_query_input",
-    on_change=run_search_callback
+    on_change=execute_search
   );
 
 with button_col:
@@ -158,7 +158,7 @@ with button_col:
     "Search",
     type="primary",
     use_container_width=True,
-    on_click=run_search_callback
+    on_click=execute_search
   );
 
 st.divider()
