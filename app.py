@@ -67,8 +67,8 @@ def display_as_split_pane (ordered_results):
 
       # Operational Metadata Fields grouped tightly
       st.markdown("#### 📍 Operational Constraints")
-      st.write(f"💰 **Fee Framework:** {active_record['fees']}")
-      st.write(f"🏢 **Physical Address:** {active_record['address']}")
+      st.write(f"💰 **Fees:** {active_record['fees']}")
+      st.write(f"🏢 **Address:** {active_record['address']}")
 
       # Active asset anchor tags
       if active_record['url'] and active_record['url'] != "N/A":
