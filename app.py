@@ -16,8 +16,7 @@ schema = engine.schema
 
 def execute_search ():
 #{
-  if "top_k" not in st.session_state:
-  st.session_state.top_k = schema["default_top_k"];
+  if "top_k" not in st.session_state: st.session_state.top_k = schema["default_top_k"];
 
   dsl = { "nlp": query, "filters": active_filters, "top_k": st.session_state.top_k }
   with st.spinner("Searching..."):
