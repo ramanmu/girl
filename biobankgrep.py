@@ -7,7 +7,7 @@ import configparser
 import re
 from sentence_transformers import SentenceTransformer
 import spacy
-from nltk.stem.snowball import SnowballStemmer
+#from nltk.stem.snowball import SnowballStemmer
 
 class BioBankGrep:
   def __init__(self):
@@ -27,9 +27,6 @@ class BioBankGrep:
         
     # Load the NLP brain once when the engine starts
     self.nlp = spacy.load("en_core_sci_sm");
-
-    # Initialize the stemmer
-    self.stemmer = SnowballStemmer("english")
   #}
 
   def clean_human_query(self, raw_query):
@@ -39,6 +36,10 @@ class BioBankGrep:
     custom_stop_stems = {
       "biobank", "repositor", "sampl", "specimen", "data", "databas"
     }
+
+    # Strip punctuation from the user query immediately similar to what we did with
+    # the biobank data.
+    raw_query = re.sub(r'[^\w\s]', ' ', raw_query);
 
     # Process the query with scispaCy
     clean_stems = []
