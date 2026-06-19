@@ -14,7 +14,7 @@ def load_engine():
 engine = load_engine()
 schema = engine.schema
 
-def execute_search (query, active_filters, top_k):
+def execute_search ():
 #{
   dsl = { "nlp": query, "filters": active_filters, "top_k": top_k }
   with st.spinnger("Searching..."):
