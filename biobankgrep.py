@@ -106,10 +106,18 @@ class BioBankGrep:
 
     # --- THE STEMMED NLP BOOSTER (FORMERLY SLEDGEHAMMER)
     for idx in subset_ids:
+    #{
       row_text = " ".join(map(str, f_df.loc[idx].values)).lower()
       clean_row_stems = set( [self.stemmer.stem(w) for w in row_text.split()] );
       match_count = sum(1 for stem in clean_query_words if stem in clean_row_stems)
+
+      # Boost the RRF when the query contains exact matches
       if match_count > 0: rrf_map[idx] *= (1.0 + (match_count * 0.5));
+
+      # Penalize RRF when the search query does not contain any exact matches
+      # and semantic similarity is also weak.
+      if match_count == 0 and v_scores[idx] < 0.25: rrf_map[idx] = 0.0;
+    #}
 
     final_s = pd.Series(rrf_map)
     final_s = final_s[final_s > 0.0] # Threshold drop
