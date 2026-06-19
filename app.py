@@ -141,11 +141,11 @@ if "top_k" not in st.session_state:
 
 # MAIN SEARCH
 # Split the row: 85% width for the search text box, 15% width for the action button
-query_col, button_col = st.columns([85, 15], gap="small", vertical_alignment="end")
+query_col, button_col = st.columns([85, 15], gap="small", vertical_alignment="bottom")
 
 with query_col:
   query = st.text_input(
-    "Enter natural language search phrase:",
+    "Enter search criteria:",
     placeholder="e.g., placental tissue",
     key="user_query_input",
     on_change=execute_search
