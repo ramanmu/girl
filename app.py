@@ -85,7 +85,7 @@ if st.button("Search", type="primary") or query:
 #                    }
 #                )
 
-        display_as_split_screen(ordered_results);
+        display_as_split_pane(ordered_results);
 #        # Inside app.py - Render as high-fidelity result cards
 #        for idx, row in ordered_results.iterrows():
 #        # Creates a beautiful visually isolated card container
@@ -104,7 +104,7 @@ if st.button("Search", type="primary") or query:
 #              # Display the URL hyperlink 
 #              st.markdown(f"🔗 [Repository Website]({clean_url})")
 
-def displa_as_split_pane (ordered_results):
+def display_as_split_pane (ordered_results):
 #{
   # INITIALIZE PREVIEW TRACKER STATE
   # Keeps track of which row index the user has currently selected or clicked.
