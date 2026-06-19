@@ -35,7 +35,7 @@ def display_as_split_pane (ordered_results):
   # LEFT-PANE (40%): HIGH-DENSITY SEARCH RESULTS LIST
   # --- LEFT PANE: INTERACTIVE LISTING ITEMS ---
   with list_pane:
-    st.markdown("### 📥 Matching Repositories")
+    st.markdown("### 📥 Repository")
       
     # Create a scrollable wrapper frame for the list items
     with st.container(height=450):
@@ -49,7 +49,7 @@ def display_as_split_pane (ordered_results):
 
   # --- RIGHT PANE: RICH PREVIEW CARD ---
   with preview_pane:
-    st.markdown("### 🔍 Preview")
+    st.markdown("### 🔍 Overview")
     current_row_num = st.session_state.selected_row_idx
     if current_row_num < len(ordered_results):
     #{
@@ -65,7 +65,7 @@ def display_as_split_pane (ordered_results):
         st.divider()
 
         # This native markdown block handles full word-wrapping dynamically without bugs
-        st.markdown("#### 📋 Clinical Meta Data")
+        #st.markdown("#### 📋 Clinical Meta Data")
         st.write(active_record['description'])
 
         st.divider()
