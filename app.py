@@ -5,11 +5,6 @@ from biobankgrep import BioBankGrep
 
 def display_as_split_pane (ordered_results):
 #{
-  # INITIALIZE PREVIEW TRACKER STATE
-  # Keeps track of which row index the user has currently selected or clicked.
-  if "selected_row_idx" not in st.session_state:
-    st.session_state.selected_row_idx = 0;
-
   # CONSTRUCT THE SPLIT-PANES: 40% LIST, 60% PREVIEW CARD
   list_pane, preview_pane = st.columns([40, 60], gap="medium");
 
@@ -38,7 +33,10 @@ def display_as_split_pane (ordered_results):
 
     # Update our session memory pointer based on user's active click selection
     if selected_grid and len(selected_grid.selection.rows) > 0:
-      st.session_state.selected_row_idx = selected_grid.selection.rows[0]
+      new_selection = selected_grid.selection.rows[0];
+      if new_selection != st.session_state.selected_row_idx:
+        st.session_state.selected_row_idx = new_selection;
+        st.rerun();
 
   # --- RIGHT PANE: RICH PREVIEW CARD ---
   with preview_pane:
@@ -118,9 +116,14 @@ for f in schema["filters"]:
 st.sidebar.markdown("---")
 top_k = st.sidebar.slider("Max Results", min_value=5, max_value=100, value=schema["default_top_k"])
 
-# --- UI: Main Search ---
-query = st.text_input("Describe the biobank data you are looking for:", 
-                      placeholder="e.g., pediatric samples")
+# INITIALIZE SESSION STATE ON STARTUP
+if "search_results" not in st.session_state:
+  st.session_state.search_results = None;
+if "selected_row_idx" not in st.session_state:
+  st.session_state.selected_row_idx = 0;
+
+# MAIN SEARCH
+query = st.text_input("Enter search criteria", placeholder="e.g., pediatric samples")
 
 if st.button("Search", type="primary") or query:
   if not query:
@@ -130,23 +133,22 @@ if st.button("Search", type="primary") or query:
       dsl = { "nlp": query, "filters": active_filters, "top_k": top_k }
       st.session_state.search_results = engine.execute_query(dsl);
       st.session_state.selected_row_idx = 0;
-      if "search_results" in st.session_state and not st.session_state.search_results.empty:
-        results = st.session_state.search_results;
-        st.success(f"Found {len(results)} biobanks.")
-            
-        # 1. ---- DEFINE YOUR DESIRED COLUMN ORDER ------------
-        # Columns will be displayed in this order from left-to-right
-        desired_column_order = [
-          "name", "repository_type", "description", "fees",
-          "url", "email", "phone", "address", "rrf_score",
-        ]
+      st.rerun(); # force layout stabilization
 
-        # Filter and re-order the dataframe rows dynamically
-        # (We use errors='ignore' just in case a column name has a typo)
-        ordered_results = results.reindex(columns=desired_column_order, fill_value="N/A")
-        display_as_split_pane(ordered_results);
-      elif "search_results" in st.session_state:
-        st.error("No biobanks matched your exact criteria.")
+st.divider()
+
+if st.session_state.search_results is not None:
+  results = st.session_state.search_results;
+  if not results.empty:
+    st.success(f"Found {len(results)} biobanks.")
+    desired_column_order = [
+      "name", "repository_type", "description", "fees",
+      "url", "email", "phone", "address", "rrf_score",
+    ]
+    ordered_results = results.reindex(columns=desired_column_order, fill_value="N/A")
+    display_as_split_pane(ordered_results);
+  else:
+    st.error("No biobanks matched your exact criteria.")
                   
 #                # 2. RENDER THE UPGRADED DATAFRAME WITH CONFIG
 #                st.dataframe(
