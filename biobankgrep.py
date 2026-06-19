@@ -82,6 +82,7 @@ class BioBankGrep:
         search_str = " ".join(val).lower()
         f_df = f_df[f_df[col].astype(str).str.lower().str.contains(search_str, na=False, regex=False)]
                 
+    # Safeguard against an empty query string.                
     if f_df.empty or top_k <= 0 or not processed_query: 
       empty_df = pd.DataFrame(columns=f_df.columns)
       return empty_df.assign(rrf_score=[])
