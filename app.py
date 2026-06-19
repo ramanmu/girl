@@ -141,7 +141,7 @@ if "top_k" not in st.session_state:
 
 # MAIN SEARCH
 # Split the row: 85% width for the search text box, 15% width for the action button
-query_col, button_col = st.columns([85, 15], gap="small")
+query_col, button_col = st.columns([85, 15], gap="small", vertical_alignment="end")
 
 with query_col:
   query = st.text_input(
@@ -152,8 +152,6 @@ with query_col:
   );
 
 with button_col:
-  # Create an invisible spacer to align the button layout baseline perfectly
-  st.markdown("### \n");
   st.button(
     "Search",
     type="primary",
