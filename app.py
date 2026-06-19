@@ -141,23 +141,11 @@ if "top_k" not in st.session_state:
 
 # MAIN SEARCH
 # Split the row: 85% width for the search text box, 15% width for the action button
-query_col, button_col = st.columns([85, 15], gap="small", vertical_alignment="bottom")
-
-with query_col:
-  query = st.text_input(
-    "Enter search criteria:",
-    placeholder="e.g., placental tissue",
-    key="user_query_input",
-    on_change=execute_search
-  );
-
-with button_col:
-  st.button(
-    "Search",
-    type="primary",
-    use_container_width=True,
-    on_click=execute_search
-  );
+# Wrap the inputs in a form to prevent race conditions and batch state updates
+with st.form(key="search_bar_form", border=False):
+  query_col, button_col = st.columns([85, 15], gap="small", vertical_alignment="bottom")
+  with query_col: query = st.text_input( "Enter search criteria:", placeholder="e.g., placental tissue", key="user_query_input");
+  with button_col: st.button("Search", type="primary", use_container_width=True, on_click=execute_search);
 
 st.divider()
 
