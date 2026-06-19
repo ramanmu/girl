@@ -54,7 +54,7 @@ class BioBankGrep:
           if stemmed_word not in custom_stop_stems:
             clean_stems.append(stemmed_word)
     #}
-    if not clean_steams:
+    if not clean_stems:
       clean_stems = [self.stemmer.stem(w) for w in raw_query.lower().split() if w not in custom_stop_stems];
     return clean_stems
   #}
@@ -83,7 +83,8 @@ class BioBankGrep:
         f_df = f_df[f_df[col].astype(str).str.lower().str.contains(search_str, na=False, regex=False)]
                 
     if f_df.empty or top_k <= 0 or not processed_query: 
-      return f_df.head(max(0, top_k)).assign(rrf_score=0.0)
+      empty_df = pd.DataFrame(columns=f_df.columns)
+      return empty_df.assign(rrf_score=[])
 
     # 3. Vector Score
     subset_ids = f_df.index.tolist()
@@ -105,7 +106,7 @@ class BioBankGrep:
     # --- THE STEMMED NLP BOOSTER (FORMERLY SLEDGEHAMMER)
     for idx in subset_ids:
       row_text = " ".join(map(str, f_df.loc[idx].values)).lower()
-      clean_row_stems = set( [self.stemmer(w) for w in row_text.split()] );
+      clean_row_stems = set( [self.stemmer.stem(w) for w in row_text.split()] );
       match_count = sum(1 for stem in clean_query_words if stem in clean_row_stems)
       if match_count > 0: rrf_map[idx] *= (1.0 + (match_count * 0.5));
 
