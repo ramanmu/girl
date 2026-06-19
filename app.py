@@ -30,7 +30,7 @@ def select_preview_row (row_index):
 def display_as_split_pane (ordered_results):
 #{
   # CONSTRUCT THE SPLIT-PANES: 40% LIST, 60% PREVIEW CARD
-  list_pane, preview_pane = st.columns([40, 60], gap="medium");
+  list_pane, preview_pane = st.columns([40, 60], gap="small");
 
   # LEFT-PANE (40%): HIGH-DENSITY SEARCH RESULTS LIST
   # --- LEFT PANE: INTERACTIVE LISTING ITEMS ---
