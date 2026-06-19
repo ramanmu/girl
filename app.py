@@ -86,7 +86,6 @@ def display_as_split_pane (ordered_results):
   else: st.info("Select a repository from the left panel listing to inspect its complete clinical metadata sheet.");
 #}
 
-
 # Initialize engine once (caches the models in memory)
 @st.cache_resource
 def load_engine():
@@ -124,15 +123,14 @@ if "selected_row_idx" not in st.session_state:
 # MAIN SEARCH
 query = st.text_input("Enter search criteria", placeholder="e.g., pediatric samples")
 
-if st.button("Search", type="primary") or query:
-  if not query:
-    st.warning("Please enter a search term.")
-  else:
-    with st.spinner("Searching..."):
-      dsl = { "nlp": query, "filters": active_filters, "top_k": top_k }
-      st.session_state.search_results = engine.execute_query(dsl);
-      st.session_state.selected_row_idx = 0;
+def execute_search ():
+#{
+  dsl = { "nlp": query, "filters": active_filters, "top_k": top_k }
+  st.session_state.search_results = engine.execute_query(dsl);
+  st.session_state.selected_row_idx = 0;
+#}
 
+st.button("Search", type="primary", on_click=execute_search);
 st.divider()
 
 if st.session_state.search_results is not None:
