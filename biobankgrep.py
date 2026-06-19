@@ -66,7 +66,15 @@ class BioBankGrep:
         
     # 1. Clean query
     clean_query_words = self.clean_human_query(raw_query)
-    processed_query = " ".join(clean_query_words)
+    
+    # LEXICAL GATEKEEPER: Ensure the tokens are actual recognized words 
+    # by checking against scispaCy's vocabulary.
+    valid_words = [w for w in clean_query_words if self.nlp.vocab.strings[w]]
+    if not valid_words: # The string is complete gibberish or an unrecognized fragment
+        empty_df = pd.DataFrame(columns=self.df.columns)
+        return empty_df.assign(rrf_score=[])
+        
+    processed_query = " ".join(valid_words)
         
     # 2. Apply Pandas Filters
     f_df = self.df.copy()
