@@ -71,8 +71,8 @@ class BioBankGrep:
     # by checking against scispaCy's vocabulary.
     valid_words = [w for w in clean_query_words if self.nlp.vocab.strings[w]]
     if not valid_words: # The string is complete gibberish or an unrecognized fragment
-        empty_df = pd.DataFrame(columns=self.df.columns)
-        return empty_df.assign(rrf_score=[])
+      empty_df = pd.DataFrame(columns=self.df.columns)
+      return empty_df.assign(rrf_score=[])
         
     processed_query = " ".join(valid_words)
         
