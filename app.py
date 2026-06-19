@@ -130,11 +130,9 @@ if st.button("Search", type="primary") or query:
       dsl = { "nlp": query, "filters": active_filters, "top_k": top_k }
       st.session_state.search_results = engine.execute_query(dsl);
       st.session_state.selected_row_idx = 0;
-      if "search_results" in st.session_state and st.session_state.search_reslts.empty:
-        st.error("No biobanks matched your exact criteria.")
-      elif "search_results" in st.session_state:
+      if "search_results" in st.session_state and not st.session_state.search_reslts.empty:
         st.success(f"Found {len(results)} biobanks.")
-        #results = engine.execute_query(dsl)
+        results = st.session_state.search_results;
             
         # 1. ---- DEFINE YOUR DESIRED COLUMN ORDER ------------
         # Columns will be displayed in this order from left-to-right
@@ -147,6 +145,8 @@ if st.button("Search", type="primary") or query:
         # (We use errors='ignore' just in case a column name has a typo)
         ordered_results = results.reindex(columns=desired_column_order, fill_value="N/A")
         display_as_split_pane(ordered_results);
+      elif "search_results" in st.session_state:
+        st.error("No biobanks matched your exact criteria.")
                   
 #                # 2. RENDER THE UPGRADED DATAFRAME WITH CONFIG
 #                st.dataframe(
