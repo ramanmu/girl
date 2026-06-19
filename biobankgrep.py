@@ -31,53 +31,49 @@ class BioBankGrep:
 
   def clean_human_query(self, raw_query):
   #{
-    # 1. Keep a small, tight list of domain-specific custom stop words, "garbage words"
-    # Make sure you use their 'stems'
-    custom_stop_stems = {
-      "biobank", "repositor", "sampl", "specimen", "data", "databas"
-    }
-
-    # Strip punctuation from the user query immediately similar to what we did with
-    # the biobank data.
-    raw_query = re.sub(r'[^\w\s]', ' ', raw_query);
-
-    # Process the query with scispaCy
-    clean_stems = []
+    custom_stop_lemmas = { "biobank", "repositor", "sampl", "specimen", "data", "databas" }
+    clean_lemmas = []
     doc = self.nlp(raw_query.lower())
+      
     for token in doc:
     #{
-      # Check the token's Part of Speech (POS) tag!
-      # We ONLY allow Nouns, Proper Nouns, and Adjectives.
-      # This instantly destroys verbs like 'have', 'contain', 'want', 'get'.
       if token.pos_ in {"NOUN", "PROPN", "ADJ"}:
         if not token.is_stop:
-          stemmed_word = self.stemmer.stem(token.lemma_)
-          if stemmed_word not in custom_stop_stems:
-            clean_stems.append(stemmed_word)
+          # Lexical Gatekeeper: Check raw text against dictionary before lemmatizing
+          if self.nlp.vocab.strings[token.text]:
+            lemma_word = token.lemma_.lower()
+            if lemma_word not in custom_stop_lemmas:
+              clean_lemmas.append(lemma_word)
     #}
-    if not clean_stems:
-      clean_stems = [self.stemmer.stem(w) for w in raw_query.lower().split() if w not in custom_stop_stems];
-    return clean_stems
+      
+    if not clean_lemmas:
+      clean_lemmas = [
+        token.lemma_.lower() for token in self.nlp(raw_query.lower()) 
+        if token.lemma_.lower() not in custom_stop_lemmas and self.nlp.vocab.strings[token.text]
+      ]
+        
+    return clean_lemmas
   #}
 
   def execute_query(self, dsl):
+  #{
     raw_query = dsl.get("nlp", "").strip()
     filters = dsl.get("filters", {})
     top_k = dsl.get("top_k", self.schema["default_top_k"])
         
-    # 1. Clean query
-    clean_query_words = self.clean_human_query(raw_query)
-    
-    # LEXICAL GATEKEEPER: Ensure the tokens are actual recognized words 
-    # by checking against scispaCy's vocabulary.
-    valid_words = [w for w in clean_query_words if self.nlp.vocab.strings[w]]
-    if not valid_words: # The string is complete gibberish or an unrecognized fragment
+    # 1. ABSOLUTE SYMMETRY: Strip punctuation before any processing
+    raw_query = re.sub(r'[^\w\s]', ' ', raw_query)
+        
+    # 2. THE ABSOLUTE FIREWALL
+    if len(raw_query.strip()) <= 1:
       empty_df = pd.DataFrame(columns=self.df.columns)
       return empty_df.assign(rrf_score=[])
+            
+    # 3. Clean query
+    clean_query_words = self.clean_human_query(raw_query)
+    processed_query = " ".join(clean_query_words)
         
-    processed_query = " ".join(valid_words)
-        
-    # 2. Apply Pandas Filters
+    # 4. Apply Pandas Filters
     f_df = self.df.copy()
     type_map = {f["column"]: f["type"] for f in self.schema["filters"]}
         
@@ -91,46 +87,54 @@ class BioBankGrep:
         search_str = " ".join(val).lower()
         f_df = f_df[f_df[col].astype(str).str.lower().str.contains(search_str, na=False, regex=False)]
                 
-    # Safeguard against an empty query string.                
+    # Safeguard against empty results
     if f_df.empty or top_k <= 0 or not processed_query: 
       empty_df = pd.DataFrame(columns=f_df.columns)
       return empty_df.assign(rrf_score=[])
 
-    # 3. Vector Score
+    # 5. Vector Score
     subset_ids = f_df.index.tolist()
     q_vec = self.model.encode([processed_query]).astype("float32")
     faiss.normalize_L2(q_vec)
     v_scores, _ = self.index.search(q_vec, self.index.ntotal)
     v_scores = v_scores[0][subset_ids]
 
-    # 4. BM25 Score
+    # 6. BM25 Score
     tokenized_q = processed_query.split()
     k_scores = np.array([self.bm25.get_scores(tokenized_q)[i] for i in subset_ids])
 
-    # 5. RRF & Lexical Multiplier
+    # 7. RRF
     v_ranks, k_ranks = np.argsort(-v_scores), np.argsort(-k_scores)
     rrf_map = {idx: 0.0 for idx in subset_ids}
     for r, p in enumerate(v_ranks): rrf_map[subset_ids[p]] += 1.0/(self.rrf_k + r)
     for r, p in enumerate(k_ranks): rrf_map[subset_ids[p]] += 1.0/(self.rrf_k + r)
 
-    # --- THE STEMMED NLP BOOSTER (FORMERLY SLEDGEHAMMER)
-    for idx in subset_ids:
+    # --- THE PURE NLP BOOSTER & GIBBERISH FIREWALL ---
+    # Using enumerate(subset_ids) fixes the IndexError on v_scores
+    for i, idx in enumerate(subset_ids):
     #{
       row_text = " ".join(map(str, f_df.loc[idx].values)).lower()
-      clean_row_stems = set( [self.stemmer.stem(w) for w in row_text.split()] );
-      match_count = sum(1 for stem in clean_query_words if stem in clean_row_stems)
+      
+      # Mirror the punctuation stripping exactly
+      clean_row_text = re.sub(r'[^\w\s]', ' ', row_text)
+      
+      # Use SpaCy to lemmatize the database row
+      row_doc = self.nlp(clean_row_text)
+      clean_row_lemmas = set([token.lemma_.lower() for token in row_doc if not token.is_space])
+      
+      # Match on neural lemmas, not chopped strings
+      match_count = sum(1 for lemma in clean_query_words if lemma in clean_row_lemmas)
 
-      # Boost the RRF when the query contains exact matches
-      if match_count > 0: rrf_map[idx] *= (1.0 + (match_count * 0.5));
+      if match_count > 0: rrf_map[idx] *= (1.0 + (match_count * 0.5))
 
-      # Penalize RRF when the search query does not contain any exact matches
-      # and semantic similarity is also weak.
-      #if match_count == 0 and v_scores[idx] < 0.25: rrf_map[idx] = 0.0;
-      if match_count == 0 and v_scores[idx] < 0.25: rrf_map[idx] = 0.0;
+      # The 0.25 heuristic to kill unconfident semantic noise
+      if match_count == 0 and v_scores[i] < 0.25: 
+        rrf_map[idx] = 0.0
     #}
 
     final_s = pd.Series(rrf_map)
-    final_s = final_s[final_s > 0.0] # Threshold drop
+    final_s = final_s[final_s > 0.0] 
         
     winners = final_s.sort_values(ascending=False).index[:top_k]
     return f_df.loc[winners].assign(rrf_score=final_s[winners])
+  #}
