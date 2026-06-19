@@ -145,7 +145,7 @@ if "top_k" not in st.session_state:
 with st.form(key="search_bar_form", border=False):
   query_col, button_col = st.columns([85, 15], gap="small", vertical_alignment="bottom")
   with query_col: query = st.text_input("Enter search:", placeholder="e.g., placental tissue", key="user_query_input");
-  with button_col: submitted st.form_submit_button("Search", type="primary", use_container_width=True);
+  with button_col: submitted = st.form_submit_button("Search", type="primary", use_container_width=True);
 if submitted: execue_search();
 
 st.divider()
