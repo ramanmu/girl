@@ -42,14 +42,9 @@ def display_as_split_pane (ordered_results):
       for idx, row in ordered_results.reset_index(drop=True).iterrows():
         is_selected = (idx == st.session_state.selected_row_idx)
         btn_type = "primary" if is_selected else "secondary"
-        label = f"🧬 {row['name']} | Score: {row['rrf_score']:.3f}"
-        st.button(
-          label,
-          key=f"row_{idx}",
-          type=btn_type,
-          use_container_width=True,
-          on_click=select_preview_row,
-          args=(idx,)
+        label = f"🧬 {row['name']}"
+        st.button(label, key=f"row_{idx}", type=btn_type,
+          use_container_width=True, on_click=select_preview_row, args=(idx,)
         )
 
   # --- RIGHT PANE: RICH PREVIEW CARD ---
