@@ -140,10 +140,27 @@ if "top_k" not in st.session_state:
   st.session_state.top_k = schema["default_top_k"];
 
 # MAIN SEARCH
-query = st.text_input("Enter search criteria", placeholder="e.g., pediatric samples", on_change=execute_search)
+# Split the row: 85% width for the search text box, 15% width for the action button
+query_col, button_col = st.columns([85, 15], gap="small")
 
+with query_col:
+  query = st.text_input(
+    "Enter natural language search phrase:",
+    placeholder="e.g., placental tissue",
+    key="user_query_input",
+    on_change=run_search_callback
+  );
 
-st.button("Search", type="primary", on_click=execute_search);
+with button_col:
+  # Create an invisible spacer to align the button layout baseline perfectly
+  st.markdown("### \n");
+  st.button(
+    "Search",
+    type="primary",
+    use_container_width=True,
+    on_click=run_search_callback
+  );
+
 st.divider()
 
 if st.session_state.search_results is not None:
