@@ -125,7 +125,7 @@ class BioBankGrep:
       # Penalize RRF when the search query does not contain any exact matches
       # and semantic similarity is also weak.
       #if match_count == 0 and v_scores[idx] < 0.25: rrf_map[idx] = 0.0;
-      if match_count == 0 and v_scores[idx] < 0.05: rrf_map[idx] = 0.0;
+      if match_count == 0 and v_scores[idx] < 0.25: rrf_map[idx] = 0.0;
     #}
 
     final_s = pd.Series(rrf_map)
