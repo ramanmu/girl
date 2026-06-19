@@ -82,7 +82,7 @@ def display_as_split_pane (ordered_results):
             clean_url = raw_url;
           else:
             clean_url = f"https://{raw_url}"; 
-          st.markdown(f"🔗 [Website]({clean_url})")
+          st.markdown(f"🔗 **Website:** [{active_record['name']}]({clean_url})")
         #}
         # Email Asset handling
         if active_record['email'] and active_record['email'] != "N/A":
