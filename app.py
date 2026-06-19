@@ -43,7 +43,7 @@ def display_as_split_pane (ordered_results):
       active_record = ordered_results.iloc[current_row_num]
 
       # Render the untruncated card layout using beautiful Markdown containers
-      with st.container(border=True, height=450):
+      with st.container(border=True, height=450, key=f"preview_scroll_ctx_{current_row_num}"):
       #{
         st.subheader(f"🧬 {active_record['name']}")
         st.caption(f"**Type:** {active_record['repository_type']}")
