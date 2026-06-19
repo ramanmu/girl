@@ -47,8 +47,8 @@ def display_as_split_pane (ordered_results):
     with st.container(border=True):
     #{
       st.subheader(f"🧬 {active_record['name']}")
-      st.caption(f"**Type:** {row['repository_type']}")
-      st.caption(f"**Match Rank:** {row['rrf_score']:.4f}")
+      st.caption(f"**Type:** {active_record['repository_type']}")
+      st.caption(f"**Match Rank:** {active_record['rrf_score']:.4f}")
 
       st.divider()
 
