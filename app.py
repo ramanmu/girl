@@ -10,7 +10,7 @@ def display_as_split_pane (ordered_results):
     st.session_state.selected_row_idx = 0;
 
   # CONSTRUCT THE SPLIT-PANES: 40% LIST, 60% PREVIEW CARD
-  list_pane, preview_pane = st.columns([40, 60]);
+  list_pane, preview_pane = st.columns([40, 60], gap="medium");
 
   # LEFT-PANE (40%): HIGH-DENSITY SEARCH RESULTS LIST
   with list_pane:
@@ -25,8 +25,14 @@ def display_as_split_pane (ordered_results):
       lean_df,
       use_container_width=True,
       hide_index=False, # We keep the index visible so the user can see row offsets
+      height=450,  # lock vertical height so it mirrors a the preview panel
       selection_mode="single-row", # Enables interactive row clicking callbacks
-      on_select="rerun" # Instantly refreshes the UI state to update the preview pane
+      on_select="rerun", # Instantly refreshes the UI state to update the preview pane
+      column_config={
+        "name": st.column_config.TextColumn("Name", width="small"),
+        "repository_type": st.column_config.TextColumn("Type", width="small"),
+        "rrf_score": st.column_config.NumberColumn("Rank", format="%.3f", width="small")
+      }
     )
 
     # Update our session memory pointer based on user's active click selection
@@ -44,11 +50,11 @@ def display_as_split_pane (ordered_results):
     active_record = ordered_results.iloc[current_row_num]
 
     # Render the untruncated card layout using beautiful Markdown containers
-    with st.container(border=True):
+    with st.container(border=True, height=450):
     #{
       st.subheader(f"🧬 {active_record['name']}")
       st.caption(f"**Type:** {active_record['repository_type']}")
-      st.caption(f"**Match Rank:** {active_record['rrf_score']:.4f}")
+      st.caption(f"**Rank:** {active_record['rrf_score']:.3f}")
 
       st.divider()
 
