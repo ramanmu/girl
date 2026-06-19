@@ -33,10 +33,7 @@ def display_as_split_pane (ordered_results):
 
     # Update our session memory pointer based on user's active click selection
     if selected_grid and len(selected_grid.selection.rows) > 0:
-      new_selection = selected_grid.selection.rows[0];
-      if new_selection != st.session_state.selected_row_idx:
-        st.session_state.selected_row_idx = new_selection;
-        st.rerun();
+      st.session_state.selected_row_idx = selected_grid.selection.rows[0];
 
   # --- RIGHT PANE: RICH PREVIEW CARD ---
   with preview_pane:
@@ -133,7 +130,6 @@ if st.button("Search", type="primary") or query:
       dsl = { "nlp": query, "filters": active_filters, "top_k": top_k }
       st.session_state.search_results = engine.execute_query(dsl);
       st.session_state.selected_row_idx = 0;
-      st.rerun(); # force layout stabilization
 
 st.divider()
 
