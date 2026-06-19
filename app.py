@@ -21,13 +21,10 @@ def display_as_split_pane (ordered_results):
       
     # Create a scrollable wrapper frame for the list items
     with st.container(height=450):
-      for idx, row in ordered_results.iterrows():
+      for idx, row in ordered_results.reset_index(drop=True).iterrows():
         is_selected = (idx == st.session_state.selected_row_idx)
         btn_type = "primary" if is_selected else "secondary"
-          
-        # Button labels display core summary metadata metrics natively
         label = f"🧬 {row['name']} | Score: {row['rrf_score']:.3f}"
-        
         st.button(
           label,
           key=f"row_{idx}",
@@ -40,50 +37,48 @@ def display_as_split_pane (ordered_results):
   # --- RIGHT PANE: RICH PREVIEW CARD ---
   with preview_pane:
     st.markdown("### 🔍 Preview")
-
-  # Safely extract the active row data from memory bounds
-  current_row_num = st.session_state.selected_row_idx
-  if current_row_num < len(ordered_results):
-  #{
-    active_record = ordered_results.iloc[current_row_num]
-
-    # Render the untruncated card layout using beautiful Markdown containers
-    with st.container(border=True, height=450):
+    current_row_num = st.session_state.selected_row_idx
+    if current_row_num < len(ordered_results):
     #{
-      st.subheader(f"🧬 {active_record['name']}")
-      st.caption(f"**Type:** {active_record['repository_type']}")
-      st.caption(f"**Rank:** {active_record['rrf_score']:.3f}")
+      active_record = ordered_results.iloc[current_row_num]
 
-      st.divider()
-
-      # This native markdown block handles full word-wrapping dynamically without bugs
-      st.markdown("#### 📋 Clinical Meta Data Preview")
-      st.write(active_record['description'])
-
-      st.divider()
-
-      # Operational Metadata Fields grouped tightly
-      st.markdown("#### 📍 Operational Constraints")
-      st.write(f"💰 **Fees:** {active_record['fees']}")
-      st.write(f"🏢 **Address:** {active_record['address']}")
-
-      # Active asset anchor tags
-      if active_record['url'] and active_record['url'] != "N/A":
+      # Render the untruncated card layout using beautiful Markdown containers
+      with st.container(border=True, height=450):
       #{
-        raw_url = active_record['url'].strip();
+        st.subheader(f"🧬 {active_record['name']}")
+        st.caption(f"**Type:** {active_record['repository_type']}")
+        st.caption(f"**Rank:** {active_record['rrf_score']:.3f}")
 
-        # Force absolute path so streamlit won't treat it as a relative/local page.
-        if raw_url.startswith(("http://", "https://")):
-          clean_url = raw_url;
-        else:
-          clean_url = f"https://{raw_url}"; 
+        st.divider()
 
-        # Display the URL hyperlink 
-        st.markdown(f"🔗 [Repository Website]({clean_url})")
+        # This native markdown block handles full word-wrapping dynamically without bugs
+        st.markdown("#### 📋 Clinical Meta Data Preview")
+        st.write(active_record['description'])
+
+        st.divider()
+
+        # Operational Metadata Fields grouped tightly
+        st.markdown("#### 📍 Operational Constraints")
+        st.write(f"💰 **Fees:** {active_record['fees']}")
+        st.write(f"🏢 **Address:** {active_record['address']}")
+
+        # Active asset anchor tags
+        if active_record['url'] and active_record['url'] != "N/A":
+        #{
+          raw_url = active_record['url'].strip();
+
+          # Force absolute path so streamlit won't treat it as a relative/local page.
+          if raw_url.startswith(("http://", "https://")):
+            clean_url = raw_url;
+          else:
+            clean_url = f"https://{raw_url}"; 
+
+          # Display the URL hyperlink 
+          st.markdown(f"🔗 [Repository Website]({clean_url})")
+        #}
       #}
     #}
-  #}
-  else: st.info("Select a repository from the left panel listing to inspect its complete clinical metadata sheet.");
+    else: st.info("Select a repository from the left panel listing to inspect its complete clinical metadata sheet.");
 #}
 
 # Initialize engine once (caches the models in memory)
