@@ -130,7 +130,7 @@ if st.button("Search", type="primary") or query:
       dsl = { "nlp": query, "filters": active_filters, "top_k": top_k }
       st.session_state.search_results = engine.execute_query(dsl);
       st.session_state.selected_row_idx = 0;
-      if "search_results" in st.session_state and not st.session_state.search_reslts.empty:
+      if "search_results" in st.session_state and not st.session_state.search_results.empty:
         st.success(f"Found {len(results)} biobanks.")
         results = st.session_state.search_results;
             
