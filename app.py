@@ -131,8 +131,8 @@ if st.button("Search", type="primary") or query:
       st.session_state.search_results = engine.execute_query(dsl);
       st.session_state.selected_row_idx = 0;
       if "search_results" in st.session_state and not st.session_state.search_results.empty:
-        st.success(f"Found {len(results)} biobanks.")
         results = st.session_state.search_results;
+        st.success(f"Found {len(results)} biobanks.")
             
         # 1. ---- DEFINE YOUR DESIRED COLUMN ORDER ------------
         # Columns will be displayed in this order from left-to-right
