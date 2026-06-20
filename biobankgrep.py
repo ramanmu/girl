@@ -72,7 +72,13 @@ class BioBankGrep:
     inputs = [(raw_query, " ".join(self.df_sem.loc[idx].values.astype(str))) for idx in candidates]
     scores = self.cross_encoder.predict(inputs)
     
-    results = pd.Series(scores, index=candidates).sort_values(ascending=False)
-    return self.df.loc[results.index].assign(ce_score=results)
+    # NEW: Filter by relevance threshold
+    # 0.5 is a standard confidence floor for Cross-Encoders
+    relevance_threshold = 0.5 
+    results_series = pd.Series(scores, index=candidates)
+    valid_results = results_series[results_series >= relevance_threshold].sort_values(ascending=False)
+    # Return empty if nothing meets the threshold
+    if valid_results.empty: return pd.DataFrame(columns=self.df.columns)
+    return self.df.loc[valid_results.index].assign(ce_score=valid_results)
   #}
 #}

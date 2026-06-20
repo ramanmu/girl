@@ -29,6 +29,7 @@ def execute_search():
 
 def select_preview_row(row_index):
     st.session_state.selected_row_idx = row_index
+    st.rerun()  # Forces the UI to refresh immediately to show the new preview
 
 def display_as_split_pane(ordered_results):
     list_pane, preview_pane = st.columns([40, 60], gap="xxsmall")

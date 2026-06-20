@@ -7,6 +7,23 @@ from sentence_transformers import SentenceTransformer
 from rank_bm25 import BM25Okapi
 import core_pipeline
 
+def clean_repo_type(text):
+#{
+  # 1. Look for the label "RepositoryType:" (case-insensitive)
+  match = re.search(r'(?i)repository\s*type\s*:\s*(.*)', str(text))
+    
+  if match:
+  # Get the captured group (the content after the colon)
+  # Strip away the common "garbage" characters from the end
+  # This removes trailing '>', ']', etc.
+  content = match.group(1)
+  return content.strip(' >]')
+    
+  # If no match, return the original text
+  return str(text)
+#}
+
+
 def build_artifacts():
 #{
   cfg = core_pipeline.load_config()
@@ -22,10 +39,7 @@ def build_artifacts():
 
   # Repository Type Sanitization
   if 'repository_type' in df.columns:
-    # Removes 'RepositoryType:', brackets, and angle brackets
-    # e.g., "RepositoryType: <Public>" -> "Public"
-    pattern = r'(?i)repository\s*type\s*[:\s]*[\<\(\[<]?\s*([^>\]\)\>]+)\s*[\>\)\]>]?'
-    df['repository_type'] = df['repository_type'].str.replace(pattern, r'\1', regex=True)
+    df['repository_type'] = df['repository_type'].apply(clean_repo_type)
 
   
   # 2. Semantic Registry
