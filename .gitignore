@@ -1,4 +1,6 @@
 .*.swp
+*.old*
+*.gem
 .DS_Store
 __pycache__
 biobank_data.csv
