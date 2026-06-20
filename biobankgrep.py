@@ -74,6 +74,7 @@ class BioBankGrep:
     
     # NEW: Filter by relevance threshold
     # 0.5 is a standard confidence floor for Cross-Encoders
+    print(f"DEBUG Candidate scores: {scores}");
     relevance_threshold = 0.5 
     results_series = pd.Series(scores, index=candidates)
     valid_results = results_series[results_series >= relevance_threshold].sort_values(ascending=False)
