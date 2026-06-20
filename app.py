@@ -14,16 +14,11 @@ except Exception as e:
 st.set_page_config(page_title="BioBank Discovery Engine", layout="wide")
 st.title("🧬 BioBank Discovery Engine")
 
-# Initialize engine (caches models in memory)
-@st.cache_resource
-def load_engine():
-    return BioBankGrep()
-
-engine = load_engine()
-schema = engine.manifest
+# 1. Initialize the key if it's missing (prevent NameErrors)
+if "user_query_input" not in st.session_state:
+    st.session_state.user_query_input = ""
 
 def execute_search():
-
     # DEBUG: Print everything in session state
     print(f"DEBUG: All session state keys: {st.session_state.keys()}")
     
@@ -43,6 +38,39 @@ def execute_search():
         st.session_state.search_results = engine.execute_query(dsl)
         st.session_state.selected_row_idx = 0
 
+# --- MAIN SEARCH ---
+with st.form(key="search_bar_form", border=False):
+    q_col, b_col = st.columns([85, 15], vertical_alignment="bottom")
+    with q_col: st.text_input("Enter search:", placeholder="e.g., placental tissue", key="user_query_input")
+    with b_col: st.form_submit_button("Search", type="primary", use_container_width=True, on_click=execute_search)
+
+@st.cache_resource
+def load_engine():
+    return BioBankGrep()
+
+engine = load_engine()
+schema = engine.manifest
+
+# --- UI: Sidebar Filters ---
+st.sidebar.header("Data Filters")
+if "active_filters" not in st.session_state:
+    st.session_state.active_filters = {}
+
+for f in schema["filters"]:
+    col = f["column"]
+    if f["type"] == "multi":
+        selection = st.sidebar.multiselect(f"Select {col.title()}", options=f["options"])
+        if selection: st.session_state.active_filters[col] = selection
+    elif f["type"] == "substring":
+        selection = st.sidebar.text_input(f"Search {col.title()} (Contains)")
+        if selection: st.session_state.active_filters[col] = selection
+
+st.sidebar.markdown("---")
+st.sidebar.slider("Max Results", 5, 100, schema["default_top_k"], key="top_k")
+
+st.divider()
+
+# Initialize engine (caches models in memory)
 def select_preview_row(row_index):
     st.session_state.selected_row_idx = row_index
     st.rerun()  # Forces the UI to refresh immediately to show the new preview
@@ -92,31 +120,6 @@ def display_as_split_pane(ordered_results):
                     st.markdown(f"🏢 **Address:** [{active_record['address']}]({maps_url})")
         else:
             st.info("Select a repository to inspect clinical metadata.")
-
-# --- UI: Sidebar Filters ---
-st.sidebar.header("Data Filters")
-if "active_filters" not in st.session_state:
-    st.session_state.active_filters = {}
-
-for f in schema["filters"]:
-    col = f["column"]
-    if f["type"] == "multi":
-        selection = st.sidebar.multiselect(f"Select {col.title()}", options=f["options"])
-        if selection: st.session_state.active_filters[col] = selection
-    elif f["type"] == "substring":
-        selection = st.sidebar.text_input(f"Search {col.title()} (Contains)")
-        if selection: st.session_state.active_filters[col] = selection
-
-st.sidebar.markdown("---")
-st.sidebar.slider("Max Results", 5, 100, schema["default_top_k"], key="top_k")
-
-# --- MAIN SEARCH ---
-with st.form(key="search_bar_form", border=False):
-    q_col, b_col = st.columns([85, 15], vertical_alignment="bottom")
-    with q_col: st.text_input("Enter search:", placeholder="e.g., placental tissue", key="user_query_input")
-    with b_col: st.form_submit_button("Search", type="primary", use_container_width=True, on_click=execute_search)
-
-st.divider()
 
 if st.session_state.get("search_results") is not None:
     results = st.session_state.search_results
