@@ -15,6 +15,18 @@ def build_artifacts():
   
   # 1. Gold Source
   df = pd.read_csv(cfg.get("csv_file")).fillna("").reset_index(drop=True)
+  # Standardize display columns
+  for col in df.select_dtypes(include=["object", "string"]).columns:
+    df[col] = df[col].astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
+    df[col] = df[col].str.replace(r"\s+([.,;:?!])", r"\1", regex=True)
+
+  # Repository Type Sanitization
+  if 'repository_type' in df.columns:
+    # Removes 'RepositoryType:', brackets, and angle brackets
+    # e.g., "RepositoryType: <Public>" -> "Public"
+    pattern = r'(?i)repository\s*type\s*[:\s]*[\<\(\[<]?\s*([^>\]\)\>]+)\s*[\>\)\]>]?'
+    df['repository_type'] = df['repository_type'].str.replace(pattern, r'\1', regex=True)
+
   
   # 2. Semantic Registry
   df_semantic = df.copy()

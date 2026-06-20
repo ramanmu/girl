@@ -39,7 +39,7 @@ def display_as_split_pane(ordered_results):
             for idx, row in ordered_results.reset_index(drop=True).iterrows():
                 is_selected = (idx == st.session_state.selected_row_idx)
                 # Show CE Score for visual ranking
-                label = f"🧬 {row['name']} ({row['ce_score']:.3f})"
+                label = f"🧬 {row['name']}"
                 st.button(
                     label, 
                     key=f"row_{idx}", 

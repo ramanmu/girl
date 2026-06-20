@@ -1,13 +1,18 @@
-# Pin to 1.x to fix the Thinc/Spacy ABI crash
+# Data Processing
+pandas>=2.0.0
 numpy>=1.24.0,<2.0.0
 
-# Keep your existing core dependencies
-pandas>=2.0.0
+# Search & Retrieval
 faiss-cpu>=1.7.4
 rank-bm25>=0.2.2
+
+# Neural Models
 sentence-transformers>=2.2.2
+
+# NLP & Linguistics
 spacy>=3.5.0
 requests>=2.31.0
-streamlit>=1.25.0
-
 https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_core_sci_sm-0.5.4.tar.gz
+
+# UI
+streamlit>=1.25.0
