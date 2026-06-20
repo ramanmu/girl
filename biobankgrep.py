@@ -71,16 +71,21 @@ class BioBankGrep:
 
     inputs = [(raw_query, " ".join(self.df_sem.loc[idx].values.astype(str))) for idx in candidates]
     scores = self.cross_encoder.predict(inputs)
+    results_series = pd.Series(scores, index=candidates)
     
     # DEBUG: See the actual range of your logits
     print(f"DEBUG Candidate scores: {scores}");
     print(f"DEBUG: Score range: {min(scores)} to {max(scores)}")
     
-    # RELIABLE APPROACH: Use nlargest
-    results_series = pd.Series(scores, index=candidates)
+    # Convert the cross encoder logits to probabilities
+    probabilities = 1.0 / (1.0 + np.exp(-scores))
+    relevance_threshold = 0.05
+    valid_results = results_series[results_series >= relevance_threshold]
     
-    # Use nlargest to return the top N results, ignoring the threshold entirely
-    top_results = results_series.nlargest(self.limit)
+    # Return the valid results
+    if valid_results.empty: return pd.DataFrame(columns=self.df.columns)
+    user_top_k = dsl.get("top_k", self.limit)
+    top_results = valid_results.sort_values(ascending=False).head(user_top_k)
     
     return self.df.loc[top_results.index].assign(ce_score=top_results)
   #}
