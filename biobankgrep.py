@@ -6,6 +6,7 @@ import json
 import spacy
 from sentence_transformers import SentenceTransformer, CrossEncoder
 import core_pipeline
+import re
 
 class BioBankGrep:
 #{
