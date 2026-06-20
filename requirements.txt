@@ -1,9 +1,25 @@
+# Core Data & Math
+pandas>=2.0.0
+
+#numpy>=1.24.0
 numpy<2.0
+
+# Vector & Lexical Retrieval
+faiss-cpu>=1.7.4  # Use faiss-gpu if your VDI has CUDA pass-through
+rank-bm25>=0.2.2
+
+# Neural Networks (Bi-Encoder & Cross-Encoder)
+sentence-transformers>=2.2.2
+
+# NLP & Text Processing
+spacy>=3.5.0
+scispacy>=0.5.3
+
+# Network (NEW: Required for UMLS REST API)
+requests>=2.31.0
+
+# Streamlit
 streamlit
-pandas
-faiss-cpu
-rank-bm25
-sentence-transformers
-scispacy
-nltk
-https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_core_sci_sm-0.5.4.tar.gz
+
+# https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_core_sci_sm-0.5.4.tar.gz
+# pip install https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_core_sci_sm-0.5.4.tar.gz
