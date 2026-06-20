@@ -15,13 +15,21 @@ engine = load_engine()
 schema = engine.manifest
 
 def execute_search():
-    # Pull current state from widgets
+
+    # DEBUG: Print everything in session state
+    print(f"DEBUG: All session state keys: {st.session_state.keys()}")
+    
+    # Check if the key actually exists
+    if "user_query_input" in st.session_state:
+        print(f"DEBUG: Input widget value: '{st.session_state.user_query_input}'")
+    else:
+        print("DEBUG: ERROR - 'user_query_input' key is MISSING from session state")
+
+    # PROCESS QUERY:
     query = st.session_state.get("user_query_input", "")
     active_filters = st.session_state.get("active_filters", {})
     top_k = st.session_state.get("top_k", schema["default_top_k"])
-
     dsl = {"nlp": query, "filters": active_filters, "top_k": top_k}
-    
     with st.spinner("Searching..."):
         # The Two-Stage engine returns the dataframe with 'ce_score'
         st.session_state.search_results = engine.execute_query(dsl)
