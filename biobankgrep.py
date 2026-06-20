@@ -1,3 +1,4 @@
+import re
 import pandas as pd
 import numpy as np
 import faiss
@@ -6,7 +7,6 @@ import json
 import spacy
 from sentence_transformers import SentenceTransformer, CrossEncoder
 import core_pipeline
-import re
 
 class BioBankGrep:
 #{
@@ -37,8 +37,9 @@ class BioBankGrep:
   #{
     raw_query = dsl.get("nlp", "").strip()
     
-    # Single character guard clause
+    # Short circuit to kill one char queries
     if len(re.sub(r'[^\w]', '', raw_query)) <= 1:
+      st.write(f"raw query is '{raw_query}'")
       return pd.DataFrame(columns=self.df.columns)
     
     # Filter on Display DF
