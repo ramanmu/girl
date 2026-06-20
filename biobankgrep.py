@@ -39,7 +39,7 @@ class BioBankGrep:
     
     # Short circuit to kill one char queries
     if len(re.sub(r'[^\w]', '', raw_query)) <= 1:
-      st.write(f"raw query is '{raw_query}'")
+      print(f"DEBUG raw query is '{raw_query}'")
       return pd.DataFrame(columns=self.df.columns)
     
     # Filter on Display DF
