@@ -1,3 +1,4 @@
+import re
 import pandas as pd
 import faiss
 import pickle
@@ -13,11 +14,11 @@ def clean_repo_type(text):
   match = re.search(r'(?i)repository\s*type\s*:\s*(.*)', str(text))
     
   if match:
-  # Get the captured group (the content after the colon)
-  # Strip away the common "garbage" characters from the end
-  # This removes trailing '>', ']', etc.
-  content = match.group(1)
-  return content.strip(' >]')
+    # Get the captured group (the content after the colon)
+    # Strip away the common "garbage" characters from the end
+    # This removes trailing '>', ']', etc.
+    content = match.group(1)
+    return content.strip(' >]')
     
   # If no match, return the original text
   return str(text)
