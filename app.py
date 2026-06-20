@@ -39,10 +39,15 @@ def execute_search():
         st.session_state.selected_row_idx = 0
 
 # --- MAIN SEARCH ---
-with st.form(key="search_bar_form", border=False):
-    q_col, b_col = st.columns([85, 15], vertical_alignment="bottom")
-    with q_col: st.text_input("Enter search:", placeholder="e.g., placental tissue", key="user_query_input")
-    with b_col: st.form_submit_button("Search", type="primary", use_container_width=True, on_click=execute_search)
+# Flatten the UI to ensure input state is always available
+q_col, b_col = st.columns([85, 15], vertical_alignment="bottom")
+
+with q_col:
+  # Key is explicitly set here; it will exist immediately in st.session_state
+  st.text_input("Enter search:", placeholder="e.g., placental tissue", key="user_query_input")
+
+with b_col: # Standard button is more predictable for state updates than form_submit_button
+  st.button( "Search", type="primary", use_container_width=True, on_click=execute_search)
 
 @st.cache_resource
 def load_engine():
