@@ -37,8 +37,9 @@ class BioBankGrep:
   #{
     raw_query = dsl.get("nlp", "").strip()
     
-    # 1-character guard clause
-    if len(re.sub(r'[^w]', '', raw_query)) <= 1: return pd.DataFrame(columns=self.df.columns);
+    # one character guard clause
+    if len(re.sub(r'[^w]', '', raw_query)) <= 1:
+      return pd.DataFrame(columns=self.df.columns);
     
     # Filter on Display DF
     f_df = self.df.copy()
