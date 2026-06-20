@@ -7,37 +7,46 @@ from sentence_transformers import SentenceTransformer
 from rank_bm25 import BM25Okapi
 import core_pipeline
 
-def build_artifacts(df):
+def build_artifacts():
 #{
   cfg = core_pipeline.load_config()
   base = cfg.get("index_file_basename")
-  
   nlp = spacy.load(cfg.get("clinical_nlp_model"))
+  
+  # 1. Gold Source
+  df = pd.read_csv(cfg.get("csv_file")).fillna("").reset_index(drop=True)
+  
+  # 2. Semantic Registry
+  df_semantic = df.copy()
+  vec_cols = [c.strip() for c in cfg.get("vector_columns").split(",")]
+  for col in vec_cols:
+  #{
+    df_semantic[col] = df_semantic[col].apply(core_pipeline.get_indexable_text)
+  #}
+  
+  # 3. Artifact Generation
+  # BM25 & FAISS only use the semantic space
+  corpus = df_semantic[vec_cols].apply(lambda row: " ".join(row.astype(str)), axis=1).tolist()
+  tokenized = [core_pipeline.clean_clinical_text(t, nlp) for t in corpus]
+  
+  # Save BM25
+  with open(f"{base}_bm25.pkl", "wb") as f: pickle.dump(BM25Okapi(tokenized), f)
+  
+  # Save FAISS
   bi_encoder = SentenceTransformer(cfg.get("bi_encoder_name"))
-  vector_cols = [c.strip() for c in cfg.get("vector_columns").split(",")]
-  
-  print("Building BM25 Lexical Index...")
-  # Create a corpus for BM25 and Vectors based on config vector_columns
-  corpus = df[vector_cols].apply(lambda row: " ".join(row.astype(str)), axis=1).tolist()
-  
-  tokenized_corpus = [core_pipeline.clean_clinical_text(text, nlp) for text in corpus]
-  bm25 = BM25Okapi(tokenized_corpus)
-  
-  with open(f"{base}_bm25.pkl", "wb") as f: pickle.dump(bm25, f)
-  
-  print("Building FAISS Vector Index...")
   vectors = bi_encoder.encode(corpus).astype("float32")
   faiss.normalize_L2(vectors)
   index = faiss.IndexFlatIP(vectors.shape[1])
   index.add(vectors)
   faiss.write_index(index, f"{base}.faiss")
   
-  state_hash = core_pipeline.generate_state_hash(df)
-  with open(f"{base}_meta.json", "w") as f:
-  #{
-    json.dump({"state_hash": state_hash}, f)
-  #}
+  # 4. Atomic Sync
+  df.to_pickle(f"{base}_display_df.pkl")
+  df_semantic.to_pickle(f"{base}_semantic_df.pkl")
   
-  df.to_pickle(f"{base}_df.pkl")
+  state_hash = core_pipeline.generate_state_hash(df)
+  with open(f"{base}_meta.json", "w") as f: json.dump({"state_hash": state_hash}, f)
   print("Indexing Complete.")
 #}
+
+if __name__ == "__main__": build_artifacts()

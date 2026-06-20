@@ -1,204 +1,113 @@
-import json
-import pandas as pd
 import streamlit as st
+import pandas as pd
+import urllib.parse
 from biobankgrep import BioBankGrep
 
-st.set_page_config(page_title="BioBank Search", layout="wide")
+st.set_page_config(page_title="BioBank Discovery Engine", layout="wide")
 st.title("🧬 BioBank Discovery Engine")
 
-# Initialize engine once (caches the models in memory)
+# Initialize engine (caches models in memory)
 @st.cache_resource
 def load_engine():
-  return BioBankGrep()
+    return BioBankGrep()
 
 engine = load_engine()
-schema = engine.schema
+schema = engine.manifest
 
-def execute_search ():
-#{
-  if "top_k" not in st.session_state: st.session_state.top_k = schema["default_top_k"];
+def execute_search():
+    # Pull current state from widgets
+    query = st.session_state.get("user_query_input", "")
+    active_filters = st.session_state.get("active_filters", {})
+    top_k = st.session_state.get("top_k", schema["default_top_k"])
 
-  dsl = { "nlp": query, "filters": active_filters, "top_k": st.session_state.top_k }
-  with st.spinner("Searching..."):
-    st.session_state.search_results = engine.execute_query(dsl);
-    st.session_state.selected_row_idx = 0;
-#}
+    dsl = {"nlp": query, "filters": active_filters, "top_k": top_k}
+    
+    with st.spinner("Searching..."):
+        # The Two-Stage engine returns the dataframe with 'ce_score'
+        st.session_state.search_results = engine.execute_query(dsl)
+        st.session_state.selected_row_idx = 0
 
-def select_preview_row (row_index):
-#{
-  st.session_state.selected_row_idx = row_index;
-#}
+def select_preview_row(row_index):
+    st.session_state.selected_row_idx = row_index
 
-def display_as_split_pane (ordered_results):
-#{
-  # CONSTRUCT THE SPLIT-PANES: 40% LIST, 60% PREVIEW CARD
-  list_pane, preview_pane = st.columns([40, 60], gap="xxsmall");
+def display_as_split_pane(ordered_results):
+    list_pane, preview_pane = st.columns([40, 60], gap="xxsmall")
 
-  # LEFT-PANE (40%): HIGH-DENSITY SEARCH RESULTS LIST
-  # --- LEFT PANE: INTERACTIVE LISTING ITEMS ---
-  with list_pane:
-    st.markdown("### 📥 Repository")
-      
-    # Create a scrollable wrapper frame for the list items
-    with st.container(height=450):
-      for idx, row in ordered_results.reset_index(drop=True).iterrows():
-        is_selected = (idx == st.session_state.selected_row_idx)
-        btn_type = "primary" if is_selected else "secondary"
-        label = f"🧬 {row['name']}"
-        st.button(label, key=f"row_{idx}", type=btn_type,
-          use_container_width=True, on_click=select_preview_row, args=(idx,)
-        )
+    with list_pane:
+        st.markdown("### 📥 Repository")
+        with st.container(height=450):
+            for idx, row in ordered_results.reset_index(drop=True).iterrows():
+                is_selected = (idx == st.session_state.selected_row_idx)
+                # Show CE Score for visual ranking
+                label = f"🧬 {row['name']} ({row['ce_score']:.3f})"
+                st.button(
+                    label, 
+                    key=f"row_{idx}", 
+                    type="primary" if is_selected else "secondary",
+                    use_container_width=True, 
+                    on_click=select_preview_row, 
+                    args=(idx,)
+                )
 
-  # --- RIGHT PANE: RICH PREVIEW CARD ---
-  with preview_pane:
-    st.markdown("### 🔍 Overview")
-    current_row_num = st.session_state.selected_row_idx
-    if current_row_num < len(ordered_results):
-    #{
-      active_record = ordered_results.iloc[current_row_num]
-
-      # Render the untruncated card layout using beautiful Markdown containers
-      with st.container(border=True, height=450, key=f"preview_scroll_ctx_{current_row_num}"):
-      #{
-        st.subheader(f"🧬 {active_record['name']}")
-        st.caption(f"**Type:** {active_record['repository_type']}")
-        st.caption(f"**Fees:** {active_record['fees']}")
-
-        st.divider()
-
-        # This native markdown block handles full word-wrapping dynamically without bugs
-        #st.markdown("#### 📋 Clinical Meta Data")
-        st.write(active_record['description'])
-
-        st.divider()
-
-        # Operational Metadata Fields grouped tightly
-        st.markdown("#### 📍 Contact")
-        #st.write(f"💰 **Fees:** {active_record['fees']}")
-
-        # Active asset anchor tags
-        if active_record['url'] and active_record['url'] != "N/A":
-        #{
-          raw_url = active_record['url'].strip();
-          if raw_url.startswith(("http://", "https://")):
-            clean_url = raw_url;
-          else:
-            clean_url = f"https://{raw_url}"; 
-          st.markdown(f"🔗 **Website:** [{active_record['name']}]({clean_url})")
-        #}
-        # Email Asset handling
-        if active_record['email'] and active_record['email'] != "N/A":
-          raw_email = active_record['email'].strip()
-          st.markdown(f"✉️ **Email:** [{raw_email}](mailto:{raw_email})")
-
-        # Phone Asset handling
-        if active_record['phone'] and active_record['phone'] != "N/A":
-          raw_phone = active_record['phone'].strip()
-          st.markdown(f"📞 **Tel:** {raw_phone}")
-
-        # Address handling with automated mapping routing
-        if active_record['address'] and active_record['address'] != "N/A":
-          raw_address = active_record['address'].strip()
-          # URL encode the address string for safe browser navigation paths
-          import urllib.parse
-          encoded_address = urllib.parse.quote(raw_address)
-          maps_url = f"https://www.google.com/maps/search/?api=1&query={encoded_address}"
-          st.markdown(f"🏢 **Address:** [{raw_address}]({maps_url})")
-      #}
-    #}
-    else: st.info("Select a repository from the left panel listing to inspect its complete clinical metadata sheet.");
-#}
+    with preview_pane:
+        st.markdown("### 🔍 Overview")
+        current_idx = st.session_state.selected_row_idx
+        if current_idx < len(ordered_results):
+            active_record = ordered_results.iloc[current_idx]
+            with st.container(border=True, height=450):
+                st.subheader(f"🧬 {active_record['name']}")
+                st.caption(f"**Type:** {active_record['repository_type']} | **Fees:** {active_record['fees']}")
+                st.divider()
+                st.write(active_record['description'])
+                st.divider()
+                
+                st.markdown("#### 📍 Contact")
+                if active_record['url'] and active_record['url'] != "N/A":
+                    clean_url = active_record['url'] if active_record['url'].startswith("http") else f"https://{active_record['url']}"
+                    st.markdown(f"🔗 **Website:** [{active_record['name']}]({clean_url})")
+                if active_record['email'] and active_record['email'] != "N/A":
+                    st.markdown(f"✉️ **Email:** [{active_record['email']}](mailto:{active_record['email']})")
+                if active_record['phone'] and active_record['phone'] != "N/A":
+                    st.markdown(f"📞 **Tel:** {active_record['phone']}")
+                if active_record['address'] and active_record['address'] != "N/A":
+                    enc = urllib.parse.quote(active_record['address'])
+                    maps_url = f"https://www.google.com/maps/search/?api=1&query={enc}"
+                    st.markdown(f"🏢 **Address:** [{active_record['address']}]({maps_url})")
+        else:
+            st.info("Select a repository to inspect clinical metadata.")
 
 # --- UI: Sidebar Filters ---
 st.sidebar.header("Data Filters")
-active_filters = {}
+if "active_filters" not in st.session_state:
+    st.session_state.active_filters = {}
 
 for f in schema["filters"]:
-  col = f["column"]
-  if f["type"] == "multi":
-    selection = st.sidebar.multiselect(f"Select {col.title()}", options=f["options"], on_change=execute_search)
-    if selection: active_filters[col] = selection
-  elif f["type"] == "substring": # Text box for fuzzy matching (like Address)
-    selection = st.sidebar.text_input(f"Search {col.title()} (Contains)", on_change=execute_search)
-    if selection: active_filters[col] = [selection]
+    col = f["column"]
+    if f["type"] == "multi":
+        selection = st.sidebar.multiselect(f"Select {col.title()}", options=f["options"])
+        if selection: st.session_state.active_filters[col] = selection
+    elif f["type"] == "substring":
+        selection = st.sidebar.text_input(f"Search {col.title()} (Contains)")
+        if selection: st.session_state.active_filters[col] = selection
 
 st.sidebar.markdown("---")
+st.sidebar.slider("Max Results", 5, 100, schema["default_top_k"], key="top_k")
 
-top_k = st.sidebar.slider(
-  "Max Results",
-  min_value=5,
-  max_value=100,
-  value=schema["default_top_k"],
-  key="top_k",
-  on_change=execute_search
-)
-
-# INITIALIZE SESSION STATE ON STARTUP
-if "search_results" not in st.session_state:
-  st.session_state.search_results = None;
-if "selected_row_idx" not in st.session_state:
-  st.session_state.selected_row_idx = 0;
-if "top_k" not in st.session_state:
-  st.session_state.top_k = schema["default_top_k"];
-
-# MAIN SEARCH
-# Split the row: 85% width for the search text box, 15% width for the action button
-# Wrap the inputs in a form to prevent race conditions and batch state updates
+# --- MAIN SEARCH ---
 with st.form(key="search_bar_form", border=False):
-  query_col, button_col = st.columns([85, 15], gap="small", vertical_alignment="bottom")
-  with query_col: query = st.text_input("Enter search:", placeholder="e.g., placental tissue", key="user_query_input");
-  with button_col: submitted = st.form_submit_button("Search", type="primary", use_container_width=True);
-if submitted: execute_search();
+    q_col, b_col = st.columns([85, 15], vertical_alignment="bottom")
+    with q_col: st.text_input("Enter search:", placeholder="e.g., placental tissue", key="user_query_input")
+    with b_col: st.form_submit_button("Search", type="primary", use_container_width=True, on_click=execute_search)
 
 st.divider()
 
-if st.session_state.search_results is not None:
-  results = st.session_state.search_results;
-  if not results.empty:
-    st.success(f"Found {len(results)} biobanks.")
-    desired_column_order = [
-      "name", "repository_type", "description", "fees",
-      "url", "email", "phone", "address", "rrf_score",
-    ]
-    ordered_results = results.reindex(columns=desired_column_order, fill_value="N/A")
-    display_as_split_pane(ordered_results);
-  else:
-    st.error("No biobanks matched your exact criteria.")
-                  
-#                # 2. RENDER THE UPGRADED DATAFRAME WITH CONFIG
-#                st.dataframe(
-#                    ordered_results,
-#                    use_container_width=True,
-#                    hide_index=True,
-#                    #row_height=100,
-#                    column_config={
-#                        "name": st.column_config.TextColumn("Name", width="medium"),
-#                        "repository_type": st.column_config.TextColumn("Type", width="medium"),
-#                        "description": st.column_config.TextColumn("Description", width="large"),
-#                        "fees": st.column_config.TextColumn("Fees?", width="small"),
-#                        "url": st.column_config.TextColumn("URL", width="large"),
-#                        "email": st.column_config.TextColumn("Email", width="large"),
-#                        "phone": st.column_config.TextColumn("Tel", width="medium"),
-#                        "address": st.column_config.TextColumn("Address", width="large"),
-#                        "rrf_score": st.column_config.NumberColumn("Rank Score", format="%.4f")
-#                    }
-#                )
-#
-#        # Inside app.py - Render as high-fidelity result cards
-#        for idx, row in ordered_results.iterrows():
-#        # Creates a beautiful visually isolated card container
-#          with st.container(border=True):
-#            # Title bar shows name and type clearly
-#            st.subheader(f"🧬 {row['name']}")
-#            st.caption(f"**Type:** {row['repository_type']} | **Fees:** {row['fees']} | **Match Score:** {row['rrf_score']:.4f}")
-#            st.markdown(row['description'])
-#            if row['url'] and row['url'] != "N/A":
-#              raw_url = row['url'].strip();
-#              # Force absolute path so streamlit won't treat it as a relative/local page.
-#              if raw_url.startswith(("http://", "https://")):
-#                clean_url = raw_url;
-#              else:
-#                clean_url = f"https://{raw_url}"; 
-#              # Display the URL hyperlink 
-#              st.markdown(f"🔗 [Repository Website]({clean_url})")
-
+if st.session_state.get("search_results") is not None:
+    results = st.session_state.search_results
+    if not results.empty:
+        st.success(f"Found {len(results)} biobanks.")
+        # Column order updated to use ce_score
+        desired_cols = ["name", "repository_type", "description", "fees", "url", "email", "phone", "address", "ce_score"]
+        ordered_results = results.reindex(columns=desired_cols, fill_value="N/A")
+        display_as_split_pane(ordered_results)
+    else:
+        st.error("No biobanks matched your criteria.")
