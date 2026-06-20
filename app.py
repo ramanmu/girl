@@ -2,6 +2,14 @@ import streamlit as st
 import pandas as pd
 import urllib.parse
 from biobankgrep import BioBankGrep
+try:
+    with open('biobankgrep.py', 'r') as f:
+        content = f.read()
+        print("--- START OF BIOBANKGREP.PY CONTENT ---")
+        print(content)
+        print("--- END OF BIOBANKGREP.PY CONTENT ---")
+except Exception as e:
+    print(f"DEBUG: Could not read biobankgrep.py: {e}")
 
 st.set_page_config(page_title="BioBank Discovery Engine", layout="wide")
 st.title("🧬 BioBank Discovery Engine")
