@@ -11,50 +11,54 @@ try:
 except Exception as e:
     print(f"DEBUG: Could not read biobankgrep.py: {e}")
 
-st.set_page_config(page_title="BioBank Discovery Engine", layout="wide")
-st.title("🧬 BioBank Discovery Engine")
-
-# 1. Initialize the key if it's missing (prevent NameErrors)
-if "user_query_input" not in st.session_state:
-    st.session_state.user_query_input = ""
-
-def execute_search():
-    # DEBUG: Print everything in session state
-    print(f"DEBUG: All session state keys: {st.session_state.keys()}")
-    
-    # Check if the key actually exists
-    if "user_query_input" in st.session_state:
-        print(f"DEBUG: Input widget value: '{st.session_state.user_query_input}'")
-    else:
-        print("DEBUG: ERROR - 'user_query_input' key is MISSING from session state")
-
-    # PROCESS QUERY:
-    query = st.session_state.get("user_query_input", "")
-    active_filters = st.session_state.get("active_filters", {})
-    top_k = st.session_state.get("top_k", schema["default_top_k"])
-    dsl = {"nlp": query, "filters": active_filters, "top_k": top_k}
-    with st.spinner("Searching..."):
-        # The Two-Stage engine returns the dataframe with 'ce_score'
-        st.session_state.search_results = engine.execute_query(dsl)
-        st.session_state.selected_row_idx = 0
-
-# --- MAIN SEARCH ---
-# Flatten the UI to ensure input state is always available
-q_col, b_col = st.columns([85, 15], vertical_alignment="bottom")
-
-with q_col:
-  # Key is explicitly set here; it will exist immediately in st.session_state
-  st.text_input("Enter search:", placeholder="e.g., placental tissue", key="user_query_input")
-
-with b_col: # Standard button is more predictable for state updates than form_submit_button
-  st.button( "Search", type="primary", use_container_width=True, on_click=execute_search)
-
+# SEARCH ENGINE CACHE: Initialize engine (caches models in memory)
 @st.cache_resource
 def load_engine():
     return BioBankGrep()
 
 engine = load_engine()
 schema = engine.manifest
+
+# 1. Initialize the key if it's missing (prevent NameErrors)
+if "user_query_input" not in st.session_state:
+    st.session_state.user_query_input = ""
+
+def execute_search():
+  # DEBUG: Print everything in session state
+  print(f"DEBUG: All session state keys: {st.session_state.keys()}")
+    
+  # Check if the key actually exists
+  if "user_query_input" in st.session_state:
+    print(f"DEBUG: Input widget value: '{st.session_state.user_query_input}'")
+  else:
+    print("DEBUG: ERROR - 'user_query_input' key is MISSING from session state")
+
+  # PROCESS QUERY:
+  query = st.session_state.get("user_query_input", "")
+  active_filters = st.session_state.get("active_filters", {})
+  top_k = st.session_state.get("top_k", schema["default_top_k"])
+  dsl = {"nlp": query, "filters": active_filters, "top_k": top_k}
+  with st.spinner("Searching..."):
+    # The Two-Stage engine returns the dataframe with 'ce_score'
+    st.session_state.search_results = engine.execute_query(dsl)
+    st.session_state.selected_row_idx = 0
+
+# RENDER UI
+st.set_page_config(page_title="BioBank Discovery Engine", layout="wide")
+st.title("🧬 BioBank Discovery Engine")
+
+# Flatten the UI to ensure input state is always available
+q_col, b_col = st.columns([85, 15], vertical_alignment="bottom")
+
+with q_col:
+  # Key is explicitly set here; it will exist immediately in st.session_state
+  st.text_input("Enter search:", placeholder="e.g., placental tissue",
+    key="user_query_input",
+    on_change=execute_search
+  )
+
+with b_col: # Standard button is more predictable for state updates than form_submit_button
+  st.button( "Search", type="primary", use_container_width=True, on_click=execute_search)
 
 # --- UI: Sidebar Filters ---
 st.sidebar.header("Data Filters")
@@ -75,7 +79,6 @@ st.sidebar.slider("Max Results", 5, 100, schema["default_top_k"], key="top_k")
 
 st.divider()
 
-# Initialize engine (caches models in memory)
 def select_preview_row(row_index):
     st.session_state.selected_row_idx = row_index
     st.rerun()  # Forces the UI to refresh immediately to show the new preview
