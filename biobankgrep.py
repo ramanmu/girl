@@ -71,7 +71,6 @@ class BioBankGrep:
 
     inputs = [(raw_query, " ".join(self.df_sem.loc[idx].values.astype(str))) for idx in candidates]
     scores = self.cross_encoder.predict(inputs)
-    results_series = pd.Series(scores, index=candidates)
     
     # DEBUG: See the actual range of your logits
     print(f"DEBUG Candidate scores: {scores}");
@@ -79,6 +78,7 @@ class BioBankGrep:
     
     # Convert the cross encoder logits to probabilities
     probabilities = 1.0 / (1.0 + np.exp(-scores))
+    results_series = pd.Series(probabilities, index=candidates)
     relevance_threshold = 0.05
     valid_results = results_series[results_series >= relevance_threshold]
     
