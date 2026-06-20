@@ -1,20 +1,13 @@
-# Data Processing
-pandas>=2.0.0
-numpy>=1.24.0
+# Pin to 1.x to fix the Thinc/Spacy ABI crash
+numpy>=1.24.0,<2.0.0
 
-# Search & Retrieval
+# Keep your existing core dependencies
+pandas>=2.0.0
 faiss-cpu>=1.7.4
 rank-bm25>=0.2.2
-
-# Neural Models
 sentence-transformers>=2.2.2
-# Note: CrossEncoder is included in sentence-transformers
-
-# NLP & Linguistics
 spacy>=3.5.0
 requests>=2.31.0
-
-# UI
 streamlit>=1.25.0
 
-https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_core_sci_sm-0.5.4.tar.gz
+#https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_core_sci_sm-0.5.4.tar.gz
