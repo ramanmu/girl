@@ -2,14 +2,6 @@ import streamlit as st
 import pandas as pd
 import urllib.parse
 from biobankgrep import BioBankGrep
-try:
-    with open('biobankgrep.py', 'r') as f:
-        content = f.read()
-        print("--- START OF BIOBANKGREP.PY CONTENT ---")
-        print(content)
-        print("--- END OF BIOBANKGREP.PY CONTENT ---")
-except Exception as e:
-    print(f"DEBUG: Could not read biobankgrep.py: {e}")
 
 # SEARCH ENGINE CACHE: Initialize engine (caches models in memory)
 @st.cache_resource
@@ -19,46 +11,31 @@ def load_engine():
 engine = load_engine()
 schema = engine.manifest
 
-# 1. Initialize the key if it's missing (prevent NameErrors)
-if "user_query_input" not in st.session_state:
-    st.session_state.user_query_input = ""
+# Form Gate with Custom UI Layout ---
+# By wrapping your columns in a form, we kill the callback race condition
+# without destroying the split-pane and grid logic below it.
+with st.form(key="search_form"):
+    q_col, b_col = st.columns([85, 15], vertical_alignment="bottom")
 
-def execute_search():
-  # DEBUG: Print everything in session state
-  print(f"DEBUG: All session state keys: {st.session_state.keys()}")
+    with q_col:
+        query = st.text_input("Enter search:", placeholder="e.g., placental tissue", key="user_query_input")
+
+    with b_col:
+        submit_button = st.form_submit_button("Search", use_container_width=True)
+
+# PROCESS QUERY: Inline execution (Only runs when button is explicitly clicked)
+if submit_button:
+    active_filters = st.session_state.get("active_filters", {})
+    # Safely pull top_k, defaulting to 100 to ensure full 84-row sweep
+    top_k = st.session_state.get("top_k", schema.get("default_top_k", 100))
     
-  # Check if the key actually exists
-  if "user_query_input" in st.session_state:
-    print(f"DEBUG: Input widget value: '{st.session_state.user_query_input}'")
-  else:
-    print("DEBUG: ERROR - 'user_query_input' key is MISSING from session state")
-
-  # PROCESS QUERY:
-  query = st.session_state.get("user_query_input", "")
-  active_filters = st.session_state.get("active_filters", {})
-  top_k = st.session_state.get("top_k", schema["default_top_k"])
-  dsl = {"nlp": query, "filters": active_filters, "top_k": top_k}
-  with st.spinner("Searching..."):
-    # The Two-Stage engine returns the dataframe with 'ce_score'
-    st.session_state.search_results = engine.execute_query(dsl)
-    st.session_state.selected_row_idx = 0
-
-# RENDER UI
-st.set_page_config(page_title="BioBank Discovery Engine", layout="wide")
-st.title("🧬 BioBank Discovery Engine")
-
-# Flatten the UI to ensure input state is always available
-q_col, b_col = st.columns([85, 15], vertical_alignment="bottom")
-
-with q_col:
-  # Key is explicitly set here; it will exist immediately in st.session_state
-  st.text_input("Enter search:", placeholder="e.g., placental tissue",
-    key="user_query_input",
-    on_change=execute_search
-  )
-
-with b_col: # Standard button is more predictable for state updates than form_submit_button
-  st.button( "Search", type="primary", use_container_width=True, on_click=execute_search)
+    dsl = {"nlp": query.strip(), "filters": active_filters, "top_k": top_k}
+    
+    with st.spinner("Searching..."):
+        # We push the DataFrame and row index back into session_state here 
+        # so your grid list and split-pane code below this block works perfectly.
+        st.session_state.search_results = engine.execute_query(dsl)
+        st.session_state.selected_row_idx = 0
 
 # --- UI: Sidebar Filters ---
 st.sidebar.header("Data Filters")
