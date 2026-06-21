@@ -102,13 +102,15 @@ def execute_query(self, dsl):
 
         bm25_scores = self.bm25.get_scores(processed_q.split())
         bm25_indices = np.argsort(-bm25_scores)[:self.limit]
-        print(f"DEBUG bm25_scores: {bm25_scores}")
+        print(f"DBG bm25_scores: {bm25_scores}")
 
-        candidates = list(set([subset_ids[i] for i in faiss_indices[0]] + [subset_ids[i] for i in bm25_indices]))
+        # Force a stable, sorted order to guarantee identical PyTorch batching
+        raw_candidates = set([subset_ids[i] for i in faiss_indices[0]] + [subset_ids[i] for i in bm25_indices])
+        candidates = sorted(list(raw_candidates))
 
         # 5. STAGE 2: Protected Semantic Re-Ranking (Cross-Encoder)
-        # We build the question context using the clean phrase, NOT the synonym bloat
-        ce_query_context = f"Does this biobank repository contain samples, data, or resources related to {clean_natural_phrase}?"
+        # Use a brutal, minimal scaffold so the model must evaluate the keyword itself
+        ce_query_context = f"Search target: {clean_natural_phrase}"
         print(f"DEBUG ce_query_context: {ce_query_context}")
 
         inputs = [(ce_query_context, " ".join(self.df_sem.loc[idx].values.astype(str))) for idx in candidates]
