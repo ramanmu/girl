@@ -33,7 +33,7 @@ class BioBankGrep:
     self.limit = self.cfg.getint("stage_1_recall_limit", fallback=30)
   #}
 
-def execute_query(self, dsl):
+  def execute_query(self, dsl):
         raw_query = dsl.get("nlp", "").strip().lower()
 
         # 1. Base Cleanup via your existing spaCy pipeline
