@@ -110,7 +110,7 @@ class BioBankGrep:
 
         # 5. STAGE 2: Protected Semantic Re-Ranking (Cross-Encoder)
         # Use a brutal, minimal scaffold so the model must evaluate the keyword itself
-        ce_query_context = f"Search target: {clean_natural_phrase}"
+        ce_query_context = f"Does this biobank repository contain samples, data, or resources related to {clean_natural_phrase}?"
         print(f"DEBUG ce_query_context: {ce_query_context}")
 
         inputs = [(ce_query_context, " ".join(self.df_sem.loc[idx].values.astype(str))) for idx in candidates]
