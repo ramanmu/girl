@@ -133,5 +133,7 @@ class BioBankGrep:
         user_top_k = dsl.get("top_k", self.limit)
         top_results = valid_results.sort_values(ascending=False).head(user_top_k)
 
+        print(f"DEBUG: Rows we think we have: {len(top_results)}")
+        print(f"DEBUG: Rows we actually found in DF: {len(self.df.loc[top_results.index])}") 
         return self.df.loc[top_results.index].assign(ce_score=top_results)
 #}
