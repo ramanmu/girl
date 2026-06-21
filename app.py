@@ -11,6 +11,9 @@ def load_engine():
 engine = load_engine()
 schema = engine.manifest
 
+st.set_page_config(page_title="BioBank Discovery Engine", layout="wide")
+st.title("🧬 BioBank Discovery Engine")
+
 # Form Gate with Custom UI Layout ---
 # By wrapping your columns in a form, we kill the callback race condition
 # without destroying the split-pane and grid logic below it.
