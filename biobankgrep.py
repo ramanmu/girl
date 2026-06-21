@@ -131,6 +131,7 @@ class BioBankGrep:
             return pd.DataFrame(columns=self.df.columns)
 
         user_top_k = dsl.get("top_k", self.limit)
+        print(f"DEBUG top_k: {user_top_k}")
         top_results = valid_results.sort_values(ascending=False).head(user_top_k)
 
         print(f"DEBUG: Rows we think we have: {len(top_results)}")
