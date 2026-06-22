@@ -32,11 +32,8 @@ with st.form(key="search_form"):
 # PROCESS QUERY: Inline execution (Only runs when button is explicitly clicked)
 if submit_button:
     active_filters = st.session_state.get("active_filters", {})
-    # Safely pull top_k, defaulting to 100 to ensure full 84-row sweep
     top_k = st.session_state.get("top_k", schema.get("default_top_k", 100))
-    
     dsl = {"nlp": query.strip(), "filters": active_filters, "top_k": top_k}
-    
     with st.spinner("Searching..."):
         # We push the DataFrame and row index back into session_state here 
         # so your grid list and split-pane code below this block works perfectly.
