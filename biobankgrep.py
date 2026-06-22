@@ -30,7 +30,7 @@ class BioBankGrep:
     
     self.bi_encoder = SentenceTransformer(self.cfg.get("bi_encoder_name"))
     self.cross_encoder = CrossEncoder(self.cfg.get("cross_encoder_name"))
-    self.limit = self.cfg.getint("stage_1_recall_limit", fallback=30)
+    self.limit = len(self.df)
   #}
 
   def execute_query(self, dsl):
