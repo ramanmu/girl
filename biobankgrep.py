@@ -108,6 +108,7 @@ class BioBankGrep:
         # Force a stable, sorted order to guarantee identical PyTorch batching
         raw_candidates = set([subset_ids[i] for i in faiss_indices[0]] + protected_indices)
         candidates = sorted(list(raw_candidates))
+        if not candidates: return pd.Series(probabilities, index=candidates)
 
         # 5. STAGE 2: Protected Semantic Re-Ranking (Cross-Encoder)
         ce_query_context = clean_natural_phrase
