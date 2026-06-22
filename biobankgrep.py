@@ -138,7 +138,7 @@ class BioBankGrep:
         user_top_k = dsl.get("top_k", self.limit)
         print(f"DEBUG user_top_k: {user_top_k}")
         print(f"DEBUG self.limit: {self.limit}")
-        print(f"DEBUG len(top_results): {len(top_results)}")
         top_results =  results_series[keep_mask].sort_values(ascending=False).head(user_top_k)
+        print(f"DEBUG len(top_results): {len(top_results)}")
         return self.df.loc[top_results.index].assign(ce_score=top_results)
 #}
