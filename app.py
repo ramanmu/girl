@@ -17,6 +17,10 @@ st.title("🧬 BioBank Discovery Engine")
 if "active_filters" not in st.session_state:
     st.session_state.active_filters = {}
 
+if "top_k" not in st.session_state:
+    st.session_state.top_k = schema.get("default_top_k", 100);
+
+
 # Form Gate with Custom UI Layout ---
 # By wrapping your columns in a form, we kill the callback race condition
 # without destroying the split-pane and grid logic below it.
@@ -32,7 +36,8 @@ with st.form(key="search_form"):
 # PROCESS QUERY: Inline execution (Only runs when button is explicitly clicked)
 if submit_button:
     active_filters = st.session_state.get("active_filters", {})
-    top_k = st.session_state.get("top_k", schema.get("default_top_k", 100))
+    top_k = st.session_state.top_k
+    print(f"DBG top_k prior to execute: {top_k}")
     dsl = {"nlp": query.strip(), "filters": active_filters, "top_k": top_k}
     with st.spinner("Searching..."):
         # We push the DataFrame and row index back into session_state here 
