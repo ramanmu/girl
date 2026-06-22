@@ -44,7 +44,7 @@ class BioBankGrep:
         # from the relevant search terms
         domain_blacklist = {
             "biobank", "biobanks", "repository", "repositories",
-            "sample", "samples", "data", "specimen", "specimens",
+            "sample", "samples", "data", "datum", "specimen", "specimens",
             "cohort", "cohorts", "collection", "collections",
             "study", "studies", "protocol", "protocols", "patient", "patients",
             "donor", "donors", "human", "investigator", "investigators",
