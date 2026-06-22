@@ -39,18 +39,18 @@ class BioBankGrep:
         # 1. Base Cleanup via your existing spaCy pipeline
         raw_tokens = core_pipeline.clean_clinical_text(raw_query, self.nlp)
 
-        # 2. Comprehensive Domain Blacklist
+        # 2. DOMAIN BLACKLIST
+        # We use this to strip out the words in the query that take away the focus
+        # from the relevant search terms
         domain_blacklist = {
             "biobank", "biobanks", "repository", "repositories",
             "sample", "samples", "data", "specimen", "specimens",
             "cohort", "cohorts", "collection", "collections",
             "study", "studies", "protocol", "protocols", "patient", "patients",
-            "donor", "donors", "human", "investigator", "investigators"
+            "donor", "donors", "human", "investigator", "investigators",
         }
         filtered_tokens = [tok for tok in raw_tokens if tok not in domain_blacklist]
-
-        if not filtered_tokens:
-            return pd.DataFrame(columns=self.df.columns)
+        if not filtered_tokens: return pd.DataFrame(columns=self.df.columns)
 
         # 3. Target Clinical Synonym Expansion (The Quick Ontology)
         quick_ontology = {
@@ -82,8 +82,7 @@ class BioBankGrep:
         }
 
         expanded_tokens = []
-        for tok in filtered_tokens:
-            expanded_tokens.append(quick_ontology.get(tok, tok))
+        for tok in filtered_tokens: expanded_tokens.append(quick_ontology.get(tok, tok))
         print(f"DEBUG expanded tokens: {expanded_tokens}")
 
         # --- THE DECOUPLING CRITICAL STEP ---
@@ -103,17 +102,16 @@ class BioBankGrep:
         bm25_scores = self.bm25.get_scores(processed_q.split())
         bm25_indices = np.argsort(-bm25_scores)[:self.limit]
         print(f"DBG bm25_scores: {bm25_scores}")
+        nonzero_mask = bm25_scores > 0
+        protected_indices = [subset_ids[i] for i in np.where(nonzero_mask)[0]]
 
         # Force a stable, sorted order to guarantee identical PyTorch batching
-        raw_candidates = set([subset_ids[i] for i in faiss_indices[0]] + [subset_ids[i] for i in bm25_indices])
+        raw_candidates = set([subset_ids[i] for i in faiss_indices[0]] + protected_indices)
         candidates = sorted(list(raw_candidates))
 
         # 5. STAGE 2: Protected Semantic Re-Ranking (Cross-Encoder)
-        # Use a brutal, minimal scaffold so the model must evaluate the keyword itself
-        #ce_query_context = f"Does this biobank repository contain samples, data, or resources related to {clean_natural_phrase}?"
         ce_query_context = clean_natural_phrase
         print(f"DEBUG ce_query_context: {ce_query_context}")
-
         inputs = [(ce_query_context, " ".join(self.df_sem.loc[idx].values.astype(str))) for idx in candidates]
         scores = self.cross_encoder.predict(inputs)
         print(f"DEBUG ce_scores: {scores}")
@@ -123,18 +121,15 @@ class BioBankGrep:
         print(f"DEBUG ce_probabilities: {probabilities}")
         results_series = pd.Series(probabilities, index=candidates)
 
-        # Raised safely to 25%. Clean, targeted prompts prevent logit compression.
-        relevance_threshold = 0.25
-        valid_results = results_series[results_series >= relevance_threshold]
+        # Combine the bm25 and CE results but ensuring that BM25 results stay
+        is_lexically_relevant = results_series.index.isin(protected_indices)
+        relevance_threshold = 0.005
+        keep_mask = is_lexically_relevant | (results_series >= relevance_threshold)
+        if keep_mask.empty: return pd.DataFrame(columns=self.df.columns)
 
-        if valid_results.empty:
-            return pd.DataFrame(columns=self.df.columns)
-
+        # Extract the final results and return
         user_top_k = dsl.get("top_k", self.limit)
         print(f"DEBUG top_k: {user_top_k}")
-        top_results = valid_results.sort_values(ascending=False).head(user_top_k)
-
-        print(f"DEBUG: Rows we think we have: {len(top_results)}")
-        print(f"DEBUG: Rows we actually found in DF: {len(self.df.loc[top_results.index])}") 
+        top_results =  results_series[keep_mask].sort_values(ascending=False).head(user_top_k)
         return self.df.loc[top_results.index].assign(ce_score=top_results)
 #}
