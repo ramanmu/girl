@@ -14,6 +14,9 @@ schema = engine.manifest
 st.set_page_config(page_title="BioBank Discovery Engine", layout="wide")
 st.title("🧬 BioBank Discovery Engine")
 
+if "active_filters" not in st.session_state:
+    st.session_state.active_filters = {}
+
 # Form Gate with Custom UI Layout ---
 # By wrapping your columns in a form, we kill the callback race condition
 # without destroying the split-pane and grid logic below it.
@@ -42,9 +45,6 @@ if submit_button:
 
 # --- UI: Sidebar Filters ---
 st.sidebar.header("Data Filters")
-if "active_filters" not in st.session_state:
-    st.session_state.active_filters = {}
-
 for f in schema["filters"]:
     col = f["column"]
     if f["type"] == "multi":
