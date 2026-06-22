@@ -98,10 +98,9 @@ class BioBankGrep:
         faiss.normalize_L2(q_vec)
         faiss_scores, faiss_indices = self.index.search(q_vec, min(self.limit, len(subset_ids)))
         print(f"DBG FAISS scores (L2 distance): {faiss_scores}")
-        faiss_threshold = 1.2 
-        quality_faiss_mask = faiss_scores[0] <= faiss_threshold
+        similarity_threshold = 0.3
+        quality_faiss_mask = faiss_scores[0] >= similarity_threshold
         quality_faiss_indices = [subset_ids[faiss_indices[0][i]] for i in range(len(faiss_indices[0])) if quality_faiss_mask[i]]
-
 
         # Compute the BM25 scores for the query.  All non-zero scores must almost always
         # be included in the final result (re-ranked possibly) 
@@ -113,8 +112,8 @@ class BioBankGrep:
 
         # Force a stable, sorted order to guarantee identical PyTorch batching
         raw_candidates = set(protected_indices + quality_faiss_indices)
+        if not raw_candidates: return pd.Series(probabilities, index=candidates)
         candidates = sorted(list(raw_candidates))
-        if not candidates: return pd.Series(probabilities, index=candidates)
 
         # 5. STAGE 2: Protected Semantic Re-Ranking (Cross-Encoder)
         clean_natural_phrase = " ".join(filtered_tokens)
