@@ -87,18 +87,24 @@ class BioBankGrep:
 
         # --- THE DECOUPLING CRITICAL STEP ---
         # Stage 1 gets the literal synonym explosion to maximize recall
+
+
+
+        # Vectorize the query using the bi-encoder and compute its L2 distance
+        # from the biobanks data.
         processed_q = " ".join(expanded_tokens)
-
-        # Stage 2 gets the clean, unmodified natural language phrase
-        clean_natural_phrase = " ".join(filtered_tokens)
-
-        # 4. STAGE 1: Hybrid Retrieval (BM25 + FAISS)
+        subset_ids = self.df.index.tolist()
         q_vec = self.bi_encoder.encode([processed_q]).astype("float32")
         faiss.normalize_L2(q_vec)
+        faiss_scores, faiss_indices = self.index.search(q_vec, min(self.limit, len(subset_ids)))
+        print(f"DBG FAISS scores (L2 distance): {faiss_scores}")
+        faiss_threshold = 1.2 
+        quality_faiss_mask = faiss_scores[0] <= faiss_threshold
+        quality_faiss_indices = [subset_ids[faiss_indices[0][i]] for i in range(len(faiss_indices[0])) if quality_faiss_mask[i]]
 
-        subset_ids = self.df.index.tolist()
-        _, faiss_indices = self.index.search(q_vec, min(self.limit, len(subset_ids)))
 
+        # Compute the BM25 scores for the query.  All non-zero scores must almost always
+        # be included in the final result (re-ranked possibly) 
         bm25_scores = self.bm25.get_scores(processed_q.split())
         bm25_indices = np.argsort(-bm25_scores)[:self.limit]
         print(f"DBG bm25_scores: {bm25_scores}")
@@ -106,11 +112,12 @@ class BioBankGrep:
         protected_indices = [subset_ids[i] for i in np.where(nonzero_mask)[0]]
 
         # Force a stable, sorted order to guarantee identical PyTorch batching
-        raw_candidates = set([subset_ids[i] for i in faiss_indices[0]] + protected_indices)
+        raw_candidates = set(protected_indices + quality_faiss_indices)
         candidates = sorted(list(raw_candidates))
         if not candidates: return pd.Series(probabilities, index=candidates)
 
         # 5. STAGE 2: Protected Semantic Re-Ranking (Cross-Encoder)
+        clean_natural_phrase = " ".join(filtered_tokens)
         ce_query_context = clean_natural_phrase
         print(f"DEBUG ce_query_context: {ce_query_context}")
         inputs = [(ce_query_context, " ".join(self.df_sem.loc[idx].values.astype(str))) for idx in candidates]
