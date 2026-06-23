@@ -11,6 +11,7 @@ sentence-transformers>=2.2.2
 
 # NLP & Linguistics
 spacy>=3.5.0
+google-genai
 requests>=2.31.0
 https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.4/en_core_sci_sm-0.5.4.tar.gz
 

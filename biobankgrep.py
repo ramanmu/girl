@@ -1,11 +1,16 @@
+import os
 import re
-import pandas as pd
-import numpy as np
+import json
 import faiss
 import pickle
-import json
+import numpy as np
+import pandas as pd
 import spacy
+import time
 from sentence_transformers import SentenceTransformer, CrossEncoder
+from rank_bm25 import BM25Okapi
+from google import genai
+from google.genai import types
 import core_pipeline
 
 class BioBankGrep:
@@ -13,132 +18,160 @@ class BioBankGrep:
   def __init__(self):
   #{
     self.cfg = core_pipeline.load_config()
-    base = self.cfg.get("index_file_basename")
-    
-    self.df = pd.read_pickle(f"{base}_display_df.pkl")
-    self.df_sem = pd.read_pickle(f"{base}_semantic_df.pkl")
-    self.nlp = spacy.load(self.cfg.get("clinical_nlp_model"))
-    
+    self.df = pd.read_pickle(f"biobank_df.pkl")
+
     # Hash check
-    with open(f"{base}_meta.json", "r") as f: meta = json.load(f)
-    if core_pipeline.generate_state_hash(self.df) != meta["state_hash"]:
-      raise Exception("Data registries desynchronized.")
+    with open("biobank_hash.json", "r") as f: meta = json.load(f)
+    if core_pipeline.generate_state_hash(self.df) != meta["state_hash"]: raise Exception("Data registries desynchronized.")
       
-    self.index = faiss.read_index(f"{base}.faiss")
-    with open(f"{base}_bm25.pkl", "rb") as f: self.bm25 = pickle.load(f)
-    with open(self.cfg.get("manifest_file"), "r") as f: self.manifest = json.load(f)
+    self.faiss = faiss.read_index(f"biobank_faiss.faiss")
+    with open("biobank_bm25.pkl", "rb") as f: self.bm25 = pickle.load(f)
+
+    try:
+      with open("biobank_filters.json", "r") as f: self.filters = json.load(f)
+    except FileNotFoundError:
+      print("WARNING: filters_file not found. UI filters will be disabled.")
+      self.filters = {}
     
+    self.nlp = spacy.load(self.cfg.get("clinical_nlp_model"))
     self.bi_encoder = SentenceTransformer(self.cfg.get("bi_encoder_name"))
     self.cross_encoder = CrossEncoder(self.cfg.get("cross_encoder_name"))
     self.limit = len(self.df)
   #}
 
-  def execute_query(self, dsl):
-        raw_query = dsl.get("nlp", "").strip().lower()
+  def _apply_filter(self, idx: int, vals: list, fid: set) -> set:
+  #{
+    # Extract the schema definition for this specific filter
+    # (Assuming manifest filters array matches the idx exactly)
+    filter_schema = self.filters[idx]
+    column = filter_schema["filter_column"]
+    predicate = filter_schema["predicate"]
+    
+    # Optimization: Only run string matching on rows that have survived previous filters
+    sub_df = self.df.loc[list(fid)]
+    
+    if predicate == "exact_match": match_idx = sub_df[sub_df[column].isin(vals)].index
+    elif predicate == "contains_any":
+      escaped_vals = [re.escape(str(v)) for v in vals]
+      pattern = '|'.join(escaped_vals)
+      match_idx = sub_df[sub_df[column].astype(str).str.contains(pattern, case=False, na=False)].index
+    else: return fid # Fallback: if predicate is unknown, do not drop rows
+      
+    # Return the newly narrowed set of indices
+    return fid.intersection(set(match_idx))
+  #}
 
-        # 1. Base Cleanup via your existing spaCy pipeline
-        raw_tokens = core_pipeline.clean_clinical_text(raw_query, self.nlp)
+  def decompose_query(self, raw_query: str) -> dict:
+  #{
+    if not raw_query: return {"must_have_groups": [], "semantic_context": ""}
 
-        # 2. DOMAIN BLACKLIST
-        # We use this to strip out the words in the query that take away the focus
-        # from the relevant search terms
-        domain_blacklist = {
-            "biobank", "biobanks", "repository", "repositories",
-            "sample", "samples", "data", "datum", "specimen", "specimens",
-            "cohort", "cohorts", "collection", "collections",
-            "study", "studies", "protocol", "protocols", "patient", "patients",
-            "donor", "donors", "human", "investigator", "investigators",
-        }
-        filtered_tokens = [tok for tok in raw_tokens if tok not in domain_blacklist]
-        if not filtered_tokens: return pd.DataFrame(columns=self.df.columns)
+    prompt = f"""
+    You are an expert at biobanks. Analyze the following biobank search query. 
+    Identify the absolute mandatory constraints (e.g., specific environments like 'marine', specific species, anatomical origins like 'placenta', geographical locations).
+    
+    CRITICAL INSTRUCTIONS:
+    1. Group distinct constraints into separate lists.
+    2. Perform deep ontological expansion for each constraint. Include direct synonyms and common sub-categories.
+    3. MORPHOLOGICAL EXPANSION: You MUST include grammatical variations (plurals, adjectives). If the constraint is a noun like 'placenta', you must explicitly include its adjective form 'placental', 'placentas', etc.
+    4. ENVIRONMENTAL TAXONOMY: If the constraint is a broad biological group (e.g., 'animal', 'plant', 'microbe'), you MUST include the major environmental domains where they exist (e.g., 'marine', 'aquatic', 'terrestrial', 'ocean', 'sea').
+    5. SEMANTIC PRESERVATION: Do NOT strip the constraints out of the 'semantic_context'. The semantic_context must be a rich, complete phrase containing both the constraints and the general concepts so the vector database has maximum context.
+    
+    Respond ONLY with a valid JSON object matching this schema:
+    {{
+        "must_have_groups": [
+            ["placenta", "placental", "placentas", "chorion", "decidua", "trophoblast"], // Constraint 1 + expansions + adjectives
+            ["animal", "marine", "avian", "aquatic", "fish"] // Example Constraint 2 + environmental domains
+        ],
+        "semantic_context": "placenta tissues" // DO NOT strip words. Leave the full descriptive phrase intact.
+    }}
+    
+    Query: "{raw_query}"
+    """
 
-        # 3. Target Clinical Synonym Expansion (The Quick Ontology)
-        quick_ontology = {
-            "child": "child pediatric paediatric children neonate newborn juvenile",
-            "children": "children child pediatric paediatric neonate newborn juvenile",
-            "baby": "baby infant newborn neonate pediatric",
-            "infant": "infant baby newborn neonate pediatric",
-            "adult": "adult mature grownup",
-            "elderly": "elderly geriatric aged senior",
-            "woman": "woman female maternal",
-            "man": "man male paternal",
-            "cancer": "cancer oncology malignant tumor carcinoma neoplasm malignancy",
-            "tumor": "tumor oncology malignant cancer carcinoma neoplasm",
-            "tumour": "tumour oncology malignant cancer carcinoma neoplasm",
-            "leukemia": "leukemia leukaemia hematologic malignancy lymphoma",
-            "leukaemia": "leukaemia leukemia hematologic malignancy lymphoma",
-            "blood": "blood plasma serum hematology wholeblood",
-            "plasma": "plasma blood serum",
-            "serum": "serum blood plasma",
-            "heart": "heart cardiac cardiovascular myocardium",
-            "liver": "liver hepatic hepatitis cirrhosis",
-            "kidney": "kidney renal nephrology",
-            "kidneys": "kidneys renal nephrology",
-            "brain": "brain neural neurological cortex cerebrospinal",
-            "lung": "lung pulmonary respiratory lungs",
-            "lungs": "lungs lung pulmonary respiratory",
-            "gut": "gut gastrointestinal gi bowel intestinal",
-            "stomach": "stomach gastrointestinal gastric"
-        }
+    try:
+      client = genai.Client()
+      response = client.models.generate_content(
+        model='gemini-2.5-flash',
+        contents=prompt,
+        config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.0)
+      )
+      return json.loads(response.text)
+    except Exception as e:
+      print(f"DEBUG: LLM Decomposition failed: {e}")
+      return {"must_have_groups": [], "semantic_context": raw_query}
+  #}
 
-        expanded_tokens = []
-        for tok in filtered_tokens: expanded_tokens.append(quick_ontology.get(tok, tok))
-        print(f"DEBUG expanded tokens: {expanded_tokens}")
+  def execute_query(self, dsl) -> pd.DataFrame:
+  #{
+    raw_query = dsl.get("nlp", "").strip().lower()
+    if not raw_query: return pd.DataFrame(columns=self.df.columns)
 
-        # --- THE DECOUPLING CRITICAL STEP ---
-        # Stage 1 gets the literal synonym explosion to maximize recall
+    # PRE-FILTERING (The UI Predicate Dispatcher)
+    surviving_indices = set(self.df.index)
+    dsl_filters = dsl.get("filters", {})
+    if dsl_filters:
+      for idx, vals in dsl_filters.items():
+        surviving_indices = self._apply_filter(int(idx), vals, surviving_indices)
+        if not surviving_indices: return pd.DataFrame(columns=self.df.columns)
 
+    # 2. LLM Query Decomposition
+    start_time = time.time()
+    llm_filters = self.decompose_query(raw_query)
+    print(f"DBG Decomposed query in {time.time() - start_time:.2f}s: {llm_filters}")
 
+    semantic_q = llm_filters.get("semantic_context", raw_query)
+    if not semantic_q.strip(): semantic_q = raw_query
 
-        # Vectorize the query using the bi-encoder and compute its L2 distance
-        # from the biobanks data.
-        processed_q = " ".join(expanded_tokens)
-        subset_ids = self.df.index.tolist()
-        q_vec = self.bi_encoder.encode([processed_q]).astype("float32")
-        faiss.normalize_L2(q_vec)
-        faiss_scores, faiss_indices = self.index.search(q_vec, min(self.limit, len(subset_ids)))
-        print(f"DBG FAISS scores (L2 distance): {faiss_scores}")
-        similarity_threshold = 0.3
-        quality_faiss_mask = faiss_scores[0] >= similarity_threshold
-        quality_faiss_indices = [subset_ids[faiss_indices[0][i]] for i in range(len(faiss_indices[0])) if quality_faiss_mask[i]]
+    # 3. FAISS Semantic Search
+    semantic_qvec = self.bi_encoder.encode([semantic_q]).astype("float32")
+    faiss.normalize_L2(semantic_qvec)
+    faiss_scores, faiss_indices = self.faiss.search(semantic_qvec, len(self.df))
+    print(f"DBG faiss_scores: {faiss_scores}")
 
-        # Compute the BM25 scores for the query.  All non-zero scores must almost always
-        # be included in the final result (re-ranked possibly) 
-        bm25_scores = self.bm25.get_scores(processed_q.split())
-        bm25_indices = np.argsort(-bm25_scores)[:self.limit]
-        print(f"DBG bm25_scores: {bm25_scores}")
-        nonzero_mask = bm25_scores > 0
-        protected_indices = [subset_ids[i] for i in np.where(nonzero_mask)[0]]
+    similarity_threshold = 0.3
+    quality_faiss_mask = faiss_scores[0] >= similarity_threshold
+    quality_faiss_indices = set(self.df.index[faiss_indices[0][i]] for i in range(len(faiss_indices[0])) if quality_faiss_mask[i])
+    
+    candidates_after_faiss = surviving_indices.intersection(quality_faiss_indices)
+    if not candidates_after_faiss: return pd.DataFrame(columns=self.df.columns)
 
-        # Force a stable, sorted order to guarantee identical PyTorch batching
-        raw_candidates = set(protected_indices + quality_faiss_indices)
-        if not raw_candidates: return pd.DataFrame(columns=self.df.columns)
-        candidates = sorted(list(raw_candidates))
+    # 4. BM25 Lexical Gate
+    must_have_groups = llm_filters.get("must_have_groups", [])
+    bm25_indices = candidates_after_faiss
+    
+    if must_have_groups:
+      for group in must_have_groups:
+        group_tokens = [t.lower() for t in group]
+        print(f"DBG group: {group}")
+        group_scores = self.bm25.get_scores(group_tokens)
+        print(f"DBG group bm25: {group_scores}")
+        group_df_indices = set(self.df.index[np.where(group_scores > 0)[0]])
+        bm25_indices = bm25_indices.intersection(group_df_indices)
+        if not bm25_indices: break
+            
+    if not bm25_indices: return pd.DataFrame(columns=self.df.columns)
 
-        # 5. STAGE 2: Protected Semantic Re-Ranking (Cross-Encoder)
-        clean_natural_phrase = " ".join(filtered_tokens)
-        ce_query_context = clean_natural_phrase
-        print(f"DEBUG ce_query_context: {ce_query_context}")
-        inputs = [(ce_query_context, " ".join(self.df_sem.loc[idx].values.astype(str))) for idx in candidates]
-        scores = self.cross_encoder.predict(inputs)
-        print(f"DEBUG ce_scores: {scores}")
+    # 5. Cross-Encoder Ranking
+    candidates = sorted(bm25_indices)
+    # Create a super-query so the CE recognizes the sub-categories
+    ce_inputs = [[raw_query, self.df.loc[idx, 'sem_context']] for idx in candidates]
+    
+    start_time = time.time()
+    ce_scores = self.cross_encoder.predict(ce_inputs)
+    print(f"DBG CE-ranked {len(candidates)} candidates in {time.time() - start_time:.2f}s")
+    
+    ce_probabilities = 1.0 / (1.0 + np.exp(-ce_scores))
+    print(f"DBG CE probabilities: {ce_probabilities}")
 
-        # 6. Refined Mathematical Guard Gate
-        probabilities = 1.0 / (1.0 + np.exp(-scores))
-        print(f"DEBUG ce_probabilities: {probabilities}")
-        results_series = pd.Series(probabilities, index=candidates)
-
-        # Combine the bm25 and CE results but ensuring that BM25 results stay
-        is_lexically_relevant = results_series.index.isin(protected_indices)
-        relevance_threshold = 0.005
-        keep_mask = is_lexically_relevant | (results_series >= relevance_threshold)
-        if keep_mask.empty: return pd.DataFrame(columns=self.df.columns)
-
-        # Extract the final results and return
-        user_top_k = dsl.get("top_k", self.limit)
-        print(f"DEBUG user_top_k: {user_top_k}")
-        print(f"DEBUG self.limit: {self.limit}")
-        top_results =  results_series[keep_mask].sort_values(ascending=False).head(user_top_k)
-        print(f"DEBUG len(top_results): {len(top_results)}")
-        return self.df.loc[top_results.index].assign(ce_score=top_results)
+    results_series = pd.Series(ce_probabilities, index=candidates)
+    user_top_k = dsl.get("top_k", self.limit)
+    
+    top_results = results_series.sort_values(ascending=False).head(user_top_k)
+    ce_threshold = 0.0001 
+    top_results = top_results[top_results >= ce_threshold]
+    print(f"Returning {len(top_results)} rows")
+    
+    if top_results.empty: return pd.DataFrame(columns=self.df.columns)
+    return self.df.loc[top_results.index].assign(ce_score=top_results)
+  #}
 #}
