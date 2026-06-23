@@ -6,3 +6,7 @@
 .DS_Store
 __pycache__
 biobank_data.csv
+bbdd.txt
+biobank_data_distribution.py
+desc.txt
+gemini_api_key.sh
