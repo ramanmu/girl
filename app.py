@@ -30,7 +30,7 @@ def perform_search():
   dsl = {
     "nlp": current_q.strip(),
     "filters": {},
-    "top_k": st.session_state.top_k_slider
+    "top_k": top_k_val
   }
 
   # Dynamically map the UI selections to the DSL using the schema index
