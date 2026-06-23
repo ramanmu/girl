@@ -23,8 +23,12 @@ if "current_query" not in st.session_state: st.session_state.current_query = ""
 # 3. Master Execution Callback
 def perform_search():
 #{
+  # Defensively fetch state variables to prevent Cold Start crashes
+  current_q = st.session_state.get("current_query", "")
+  top_k_val = st.session_state.get("top_k_slider", 100)
+
   dsl = {
-    "nlp": st.session_state.current_query.strip(),
+    "nlp": current_q.strip(),
     "filters": {},
     "top_k": st.session_state.top_k_slider
   }
