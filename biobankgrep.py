@@ -74,13 +74,15 @@ class BioBankGrep:
     2. Perform deep ontological expansion for each constraint. Include direct synonyms and common sub-categories.
     3. MORPHOLOGICAL EXPANSION: You MUST include grammatical variations (plurals, adjectives). If the constraint is a noun like 'placenta', you must explicitly include its adjective form 'placental', 'placentas', etc.
     4. ENVIRONMENTAL TAXONOMY: If the constraint is a broad biological group (e.g., 'animal', 'plant', 'microbe'), you MUST include the major environmental domains where they exist (e.g., 'marine', 'aquatic', 'terrestrial', 'ocean', 'sea').
-    5. SEMANTIC PRESERVATION: Do NOT strip the constraints out of the 'semantic_context'. The semantic_context must be a rich, complete phrase containing both the constraints and the general concepts so the vector database has maximum context.
+    5. SPECIMEN TYPES: If the query mentions a specific physical specimen format (e.g., 'tissue', 'blood', 'serum', 'plasma', 'DNA', 'cells'), you MUST create a distinct, separate constraint group for it and include its synonyms (e.g., ['tissue', 'tissues', 'biospecimen', 'sample', 'biopsy']).
+    6. SEMANTIC PRESERVATION: Do NOT strip the constraints out of the 'semantic_context'. The semantic_context must be a rich, complete phrase containing both the constraints and the general concepts so the vector database has maximum context.
     
     Respond ONLY with a valid JSON object matching this schema:
     {{
         "must_have_groups": [
             ["placenta", "placental", "placentas", "chorion", "decidua", "trophoblast"], // Constraint 1 + expansions + adjectives
-            ["animal", "marine", "avian", "aquatic", "fish"] // Example Constraint 2 + environmental domains
+            ["animal", "marine", "avian", "aquatic", "fish"], // Example Constraint 2 + environmental domains
+            ["tissue", "tissues", "biospecimen", "sample"] // Example Constraint 3 (Specimen Type)
         ],
         "semantic_context": "placenta tissues" // DO NOT strip words. Leave the full descriptive phrase intact.
     }}
@@ -88,17 +90,21 @@ class BioBankGrep:
     Query: "{raw_query}"
     """
 
-    try:
-      client = genai.Client()
-      response = client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=prompt,
-        config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.0)
-      )
-      return json.loads(response.text)
-    except Exception as e:
-      print(f"DEBUG: LLM Decomposition failed: {e}")
-      return {"must_have_groups": [], "semantic_context": raw_query}
+    max_retries = 3
+    for attempt in range(max_retries):
+      try:
+        client = genai.Client()
+        response = client.models.generate_content(
+          model='gemini-2.5-flash',
+          contents=prompt,
+          config=types.GenerateContentConfig(response_mime_type="application/json", temperature=0.0)
+        )
+        return json.loads(response.text)
+      except Exception as e:
+        print(f"DEBUG: LLM connection attempt {attempt + 1} failed: {e}")
+        if attempt == max_retries - 1:
+          raise RuntimeError("AI Taxonomy Engine Unavailable: The Google Gemini API is currently experiencing high demand (503). Please try again in a few moments.")
+        time.sleep(1 * (attempt + 1))
   #}
 
   def execute_query(self, dsl) -> pd.DataFrame:
@@ -135,25 +141,38 @@ class BioBankGrep:
     candidates_after_faiss = surviving_indices.intersection(quality_faiss_indices)
     if not candidates_after_faiss: return pd.DataFrame(columns=self.df.columns)
 
-    # 4. BM25 Lexical Gate
+    # 4. BM25 Lexical Gate (UPDATED: Quorum Logic)
     must_have_groups = llm_filters.get("must_have_groups", [])
     bm25_indices = candidates_after_faiss
     
     if must_have_groups:
+      # Track how many conceptual groups each biobank matches
+      match_counts = {idx: 0 for idx in candidates_after_faiss}
+      
       for group in must_have_groups:
         group_tokens = [t.lower() for t in group]
         print(f"DBG group: {group}")
         group_scores = self.bm25.get_scores(group_tokens)
-        print(f"DBG group bm25: {group_scores}")
+        print(f"DBG group_scores: {group_scores}")
         group_df_indices = set(self.df.index[np.where(group_scores > 0)[0]])
-        bm25_indices = bm25_indices.intersection(group_df_indices)
-        if not bm25_indices: break
+        
+        # Increment count for candidates that matched this specific group
+        for idx in group_df_indices.intersection(candidates_after_faiss):
+          match_counts[idx] += 1
+          
+      # Dynamic Threshold: If 3+ groups, allow 1 group to miss lexically (N-1 logic)
+      required_matches = len(must_have_groups)
+      if required_matches >= 3:
+        required_matches -= 1
+        
+      bm25_indices = {idx for idx, count in match_counts.items() if count >= required_matches}
             
     if not bm25_indices: return pd.DataFrame(columns=self.df.columns)
 
     # 5. Cross-Encoder Ranking
     candidates = sorted(bm25_indices)
-    # Create a super-query so the CE recognizes the sub-categories
+    
+    # Revert to natural language so the model isn't poisoned by the synonym brick
     ce_inputs = [[raw_query, self.df.loc[idx, 'sem_context']] for idx in candidates]
     
     start_time = time.time()
@@ -167,6 +186,8 @@ class BioBankGrep:
     user_top_k = dsl.get("top_k", self.limit)
     
     top_results = results_series.sort_values(ascending=False).head(user_top_k)
+    
+    # Lower the threshold to trust the LLM/BM25 taxonomic expansion
     ce_threshold = 0.0001 
     top_results = top_results[top_results >= ce_threshold]
     print(f"Returning {len(top_results)} rows")

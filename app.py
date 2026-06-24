@@ -40,8 +40,18 @@ def perform_search():
 
   if dsl["nlp"]: 
     with st.spinner("Executing semantic search..."):
-      st.session_state.search_results = engine.execute_query(dsl)
-      st.session_state.selected_row_idx = 0
+      try:
+        st.session_state.search_results = engine.execute_query(dsl)
+        st.session_state.selected_row_idx = 0
+      except RuntimeError as re:
+        # Graceful, user-friendly UI integration for the API bottleneck
+        st.warning(f"**AI Taxonomy Engine Failure**:  {str(re)}", icon="⚠️")
+        st.info("**Please wait a moment and try your search again.**", icon="🔄")
+        st.session_state.search_results = pd.DataFrame(columns=engine.df.columns) 
+      except Exception as e:
+        # Hard application crashes
+        st.error(f"System Error: {str(e)}", icon="🚨")
+        st.session_state.search_results = pd.DataFrame(columns=engine.df.columns) 
 #}
 
 # 4. UI: Sidebar Filters (Reactive)

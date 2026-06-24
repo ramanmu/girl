@@ -8,7 +8,7 @@ from sentence_transformers import SentenceTransformer
 from rank_bm25 import BM25Okapi
 import core_pipeline
 
-def compile_filters(df: pd.DataFrame, output_path: str = "manifest.json") -> pd.DataFrame:
+def compile_filters(df: pd.DataFrame, output_path: str) -> pd.DataFrame:
 #{
   """
   Extracts unique values, creates strictly named proxy '_filter' columns 
